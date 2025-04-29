@@ -41,12 +41,23 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
 
   useEffect(() => {
     // Check if Google API is available
-    setIsGapiAvailable(
-      window.gapi && 
-      window.gapi.auth2 && 
-      window.gapi.auth2.getAuthInstance() && 
-      window.gapi.auth2.getAuthInstance().isSignedIn.get()
-    );
+    const checkGapiStatus = () => {
+      const isAvailable = !!(
+        window.gapi && 
+        window.gapi.auth2 && 
+        window.gapi.auth2.getAuthInstance && 
+        window.gapi.auth2.getAuthInstance() && 
+        window.gapi.auth2.getAuthInstance().isSignedIn && 
+        window.gapi.auth2.getAuthInstance().isSignedIn.get()
+      );
+      setIsGapiAvailable(isAvailable);
+    };
+    
+    // Initial check
+    checkGapiStatus();
+    
+    // Set up interval to check periodically
+    const intervalId = setInterval(checkGapiStatus, 2000);
     
     if (session) {
       setDate(session.date ? new Date(session.date) : undefined);
@@ -58,6 +69,8 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
       setLocation("");
       setAddToGoogleCalendar(false);
     }
+    
+    return () => clearInterval(intervalId);
   }, [session, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,8 +96,9 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
       };
       
       // Save to local database
+      let savedSession: Session;
       if (session?.id) {
-        await updateSession({
+        savedSession = await updateSession({
           ...sessionData,
           id: session.id,
           createdAt: session.createdAt,
@@ -92,7 +106,7 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
         });
         toast({ title: "Success", description: "Session updated successfully" });
       } else {
-        await createSession(sessionData);
+        savedSession = await createSession(sessionData);
         toast({ title: "Success", description: "Session created successfully" });
       }
       
@@ -103,7 +117,7 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
             calendarId: 'primary',
             resource: {
               summary: `Therapy Session`,
-              description: `Patient ID: ${patientId}\nLocation: ${location}`,
+              description: `Patient ID: ${patientId}\nSession ID: ${savedSession.id}\nLocation: ${location}`,
               start: {
                 dateTime: date.toISOString(),
               },
@@ -117,22 +131,22 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
             title: "Google Calendar",
             description: "Session added to Google Calendar",
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error adding to Google Calendar:", error);
           toast({
             title: "Google Calendar Error",
-            description: "Failed to add to Google Calendar",
+            description: "Failed to add to Google Calendar: " + (error.message || "Unknown error"),
             variant: "destructive"
           });
         }
       }
       
       onSave();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving session:", error);
       toast({
         title: "Error",
-        description: `Failed to ${session ? 'update' : 'create'} session`,
+        description: `Failed to ${session ? 'update' : 'create'} session: ` + (error.message || "Unknown error"),
         variant: "destructive"
       });
     } finally {

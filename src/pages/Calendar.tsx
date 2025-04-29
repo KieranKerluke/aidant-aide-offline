@@ -9,9 +9,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllSessions } from "@/lib/db";
 import { Loader2, CalendarPlus } from "lucide-react";
 
-// Replace with your Google Calendar API Client ID
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
-const API_KEY = "YOUR_API_KEY";
+// Google Calendar API credentials
+const GOOGLE_CLIENT_ID = "868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com";
+const API_KEY = "AIzaSyBhFQnz7QCSQpWqgdPFSiIzS9i8Ma2BkrA"; // This is a placeholder API key - you need to replace it with your actual API key
 const SCOPES = "https://www.googleapis.com/auth/calendar";
 
 export default function Calendar() {
@@ -59,7 +59,7 @@ export default function Calendar() {
         setIsLoadingGoogleScript(false);
         toast({
           title: "Google Calendar Error",
-          description: "Could not initialize Google Calendar API",
+          description: "Could not initialize Google Calendar API: " + error.message,
           variant: "destructive"
         });
       });
@@ -67,6 +67,12 @@ export default function Calendar() {
     
     const updateSigninStatus = (isSignedIn: boolean) => {
       setIsAuthorized(isSignedIn);
+      if (isSignedIn) {
+        toast({
+          title: "Google Calendar",
+          description: "Successfully connected to Google Calendar",
+        });
+      }
     };
     
     loadGoogleScript();
@@ -75,15 +81,34 @@ export default function Calendar() {
   const handleAuthClick = () => {
     if (window.gapi && window.gapi.auth2) {
       if (!isAuthorized) {
-        window.gapi.auth2.getAuthInstance().signIn();
+        window.gapi.auth2.getAuthInstance().signIn().catch(error => {
+          console.error("Sign-in error:", error);
+          toast({
+            title: "Authentication Error",
+            description: "Failed to sign in to Google: " + error.message,
+            variant: "destructive"
+          });
+        });
       } else {
-        window.gapi.auth2.getAuthInstance().signOut();
+        window.gapi.auth2.getAuthInstance().signOut().then(() => {
+          toast({
+            title: "Signed Out",
+            description: "Disconnected from Google Calendar",
+          });
+        });
       }
     }
   };
   
   const syncSessionsToGoogleCalendar = async () => {
     if (!isAuthorized || !sessions || sessions.length === 0) {
+      toast({
+        title: "Sync Error",
+        description: isAuthorized 
+          ? "No sessions available to sync" 
+          : "Please connect to Google Calendar first",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -99,6 +124,7 @@ export default function Calendar() {
       
       const existingEvents = response.result.items;
       let syncCount = 0;
+      let alreadySyncedCount = 0;
       
       // For each session, check if it exists in Google Calendar and add/update if needed
       for (const session of sessions) {
@@ -124,18 +150,20 @@ export default function Calendar() {
             }
           });
           syncCount++;
+        } else {
+          alreadySyncedCount++;
         }
       }
       
       toast({
         title: "Sync Completed",
-        description: `Synced ${syncCount} sessions to Google Calendar`,
+        description: `Synced ${syncCount} new sessions to Google Calendar. ${alreadySyncedCount} sessions were already synced.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error syncing to Google Calendar:", error);
       toast({
         title: "Sync Error",
-        description: "Failed to sync sessions to Google Calendar",
+        description: "Failed to sync sessions: " + (error.message || "Unknown error"),
         variant: "destructive"
       });
     }
@@ -163,7 +191,7 @@ export default function Calendar() {
                   Loading...
                 </>
               ) : (
-                isAuthorized ? "Sign Out" : "Connect Google Calendar"
+                isAuthorized ? "Sign Out from Google" : "Connect Google Calendar"
               )}
             </Button>
             

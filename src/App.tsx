@@ -27,13 +27,12 @@ const queryClient = new QueryClient({
 });
 
 /**
- * Note for Google Calendar Integration:
+ * Google Calendar Integration Settings:
  * 
- * 1. Create a project in Google Cloud Console (https://console.cloud.google.com/)
- * 2. Enable the Google Calendar API
- * 3. Create OAuth consent screen and credentials (OAuth Client ID)
- * 4. Set JavaScript origins to your domain (e.g., https://yourdomain.com)
- * 5. Update the GOOGLE_CLIENT_ID and API_KEY in src/pages/Calendar.tsx
+ * 1. OAuth Client ID: 868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com
+ * 2. Set JavaScript origins to your domain in Google Cloud Console
+ * 3. Make sure the Google Calendar API is enabled in your project
+ * 4. The API Key needs to be generated in the Google Cloud Console
  */
 
 const App = () => (
