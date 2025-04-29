@@ -19,6 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
 
@@ -34,9 +35,19 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [duration, setDuration] = useState<number>(60);
   const [location, setLocation] = useState<string>("");
+  const [addToGoogleCalendar, setAddToGoogleCalendar] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGapiAvailable, setIsGapiAvailable] = useState(false);
 
   useEffect(() => {
+    // Check if Google API is available
+    setIsGapiAvailable(
+      window.gapi && 
+      window.gapi.auth2 && 
+      window.gapi.auth2.getAuthInstance() && 
+      window.gapi.auth2.getAuthInstance().isSignedIn.get()
+    );
+    
     if (session) {
       setDate(session.date ? new Date(session.date) : undefined);
       setDuration(session.duration);
@@ -45,8 +56,9 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
       setDate(new Date());
       setDuration(60);
       setLocation("");
+      setAddToGoogleCalendar(false);
     }
-  }, [session]);
+  }, [session, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +82,7 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
         location,
       };
       
+      // Save to local database
       if (session?.id) {
         await updateSession({
           ...sessionData,
@@ -81,6 +94,37 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
       } else {
         await createSession(sessionData);
         toast({ title: "Success", description: "Session created successfully" });
+      }
+      
+      // Add to Google Calendar if option selected and API available
+      if (addToGoogleCalendar && isGapiAvailable) {
+        try {
+          await window.gapi.client.calendar.events.insert({
+            calendarId: 'primary',
+            resource: {
+              summary: `Therapy Session`,
+              description: `Patient ID: ${patientId}\nLocation: ${location}`,
+              start: {
+                dateTime: date.toISOString(),
+              },
+              end: {
+                dateTime: new Date(date.getTime() + duration * 60000).toISOString(),
+              },
+              location: location,
+            }
+          });
+          toast({
+            title: "Google Calendar",
+            description: "Session added to Google Calendar",
+          });
+        } catch (error) {
+          console.error("Error adding to Google Calendar:", error);
+          toast({
+            title: "Google Calendar Error",
+            description: "Failed to add to Google Calendar",
+            variant: "destructive"
+          });
+        }
       }
       
       onSave();
@@ -154,6 +198,17 @@ export function SessionDialog({ isOpen, onOpenChange, session, patientId, onSave
               required
             />
           </div>
+          
+          {isGapiAvailable && (
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="googleCalendar" 
+                checked={addToGoogleCalendar} 
+                onCheckedChange={(checked) => setAddToGoogleCalendar(!!checked)} 
+              />
+              <Label htmlFor="googleCalendar">Add to Google Calendar</Label>
+            </div>
+          )}
           
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

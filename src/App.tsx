@@ -16,7 +16,25 @@ import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
 
-const queryClient = new QueryClient();
+// Create a new QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1,
+    },
+  },
+});
+
+/**
+ * Note for Google Calendar Integration:
+ * 
+ * 1. Create a project in Google Cloud Console (https://console.cloud.google.com/)
+ * 2. Enable the Google Calendar API
+ * 3. Create OAuth consent screen and credentials (OAuth Client ID)
+ * 4. Set JavaScript origins to your domain (e.g., https://yourdomain.com)
+ * 5. Update the GOOGLE_CLIENT_ID and API_KEY in src/pages/Calendar.tsx
+ */
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
