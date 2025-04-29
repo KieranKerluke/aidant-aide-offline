@@ -162,14 +162,14 @@ export function TaskDialog({ isOpen, onOpenChange, task, onSave }: TaskDialogPro
           <div className="space-y-2">
             <Label htmlFor="patient">Associated Patient (Optional)</Label>
             <Select 
-              value={patientId?.toString() || ""} 
-              onValueChange={(value) => setPatientId(value ? parseInt(value) : undefined)}
+              value={patientId?.toString() || "none"} 
+              onValueChange={(value) => setPatientId(value === "none" ? undefined : parseInt(value))}
             >
               <SelectTrigger className="w-full" id="patient">
                 <SelectValue placeholder="Select a patient (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {patients.map((patient) => (
                   <SelectItem key={patient.id} value={patient.id?.toString() || ""}>
                     {patient.name}
