@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -156,7 +155,14 @@ export default function Patients() {
               <TableBody>
                 {filteredPatients.map((patient) => (
                   <TableRow key={patient.id}>
-                    <TableCell className="font-medium">{patient.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link 
+                        to={`/patients/${patient.id}/sessions`} 
+                        className="hover:underline"
+                      >
+                        {patient.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>{calculateAge(patient.dateOfBirth)} years</TableCell>
                     <TableCell>{patient.contactInfo}</TableCell>
                     <TableCell>
@@ -171,6 +177,12 @@ export default function Patients() {
                         <Link to={`/patients/${patient.id}`}>
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">Edit</span>
+                        </Link>
+                      </Button>
+                      <Button variant="ghost" size="icon" asChild>
+                        <Link to={`/patients/${patient.id}/sessions`}>
+                          <Plus className="h-4 w-4" />
+                          <span className="sr-only">Sessions</span>
                         </Link>
                       </Button>
                       <AlertDialog>

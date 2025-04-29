@@ -1,4 +1,3 @@
-
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
 // Define our database schema
@@ -184,6 +183,133 @@ export async function updatePatient(patient: Patient): Promise<Patient> {
 export async function deletePatient(id: number): Promise<void> {
   const db = await getDB();
   await db.delete('patients', id);
+}
+
+// Session CRUD operations
+export async function createSession(session: Omit<Session, 'id' | 'createdAt' | 'updatedAt'>): Promise<Session> {
+  const db = await getDB();
+  const now = new Date().toISOString();
+  const newSession: Session = {
+    ...session,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  const id = await db.add('sessions', newSession);
+  return { ...newSession, id: id as number };
+}
+
+export async function getSession(id: number): Promise<Session | undefined> {
+  const db = await getDB();
+  return db.get('sessions', id);
+}
+
+export async function getAllSessions(): Promise<Session[]> {
+  const db = await getDB();
+  return db.getAll('sessions');
+}
+
+export async function getAllSessionsByPatient(patientId: number): Promise<Session[]> {
+  const db = await getDB();
+  const index = db.transaction('sessions').store.index('by-patient');
+  return index.getAll(patientId);
+}
+
+export async function updateSession(session: Session): Promise<Session> {
+  const db = await getDB();
+  const updatedSession = {
+    ...session,
+    updatedAt: new Date().toISOString(),
+  };
+  await db.put('sessions', updatedSession);
+  return updatedSession;
+}
+
+export async function deleteSession(id: number): Promise<void> {
+  const db = await getDB();
+  await db.delete('sessions', id);
+}
+
+// Medical Report CRUD operations
+export async function createMedicalReport(report: Omit<MedicalReport, 'id' | 'createdAt' | 'updatedAt'>): Promise<MedicalReport> {
+  const db = await getDB();
+  const now = new Date().toISOString();
+  const newReport: MedicalReport = {
+    ...report,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  const id = await db.add('medicalReports', newReport);
+  return { ...newReport, id: id as number };
+}
+
+export async function getMedicalReport(id: number): Promise<MedicalReport | undefined> {
+  const db = await getDB();
+  return db.get('medicalReports', id);
+}
+
+export async function getMedicalReportBySession(sessionId: number): Promise<MedicalReport | undefined> {
+  const db = await getDB();
+  const index = db.transaction('medicalReports').store.index('by-session');
+  const reports = await index.getAll(sessionId);
+  return reports.length > 0 ? reports[0] : undefined;
+}
+
+export async function updateMedicalReport(report: MedicalReport): Promise<MedicalReport> {
+  const db = await getDB();
+  const updatedReport = {
+    ...report,
+    updatedAt: new Date().toISOString(),
+  };
+  await db.put('medicalReports', updatedReport);
+  return updatedReport;
+}
+
+export async function deleteMedicalReport(id: number): Promise<void> {
+  const db = await getDB();
+  await db.delete('medicalReports', id);
+}
+
+// Family Report CRUD operations
+export async function createFamilyReport(report: Omit<FamilyReport, 'id' | 'createdAt' | 'updatedAt'>): Promise<FamilyReport> {
+  const db = await getDB();
+  const now = new Date().toISOString();
+  const newReport: FamilyReport = {
+    ...report,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  const id = await db.add('familyReports', newReport);
+  return { ...newReport, id: id as number };
+}
+
+export async function getFamilyReport(id: number): Promise<FamilyReport | undefined> {
+  const db = await getDB();
+  return db.get('familyReports', id);
+}
+
+export async function getFamilyReportBySession(sessionId: number): Promise<FamilyReport | undefined> {
+  const db = await getDB();
+  const index = db.transaction('familyReports').store.index('by-session');
+  const reports = await index.getAll(sessionId);
+  return reports.length > 0 ? reports[0] : undefined;
+}
+
+export async function updateFamilyReport(report: FamilyReport): Promise<FamilyReport> {
+  const db = await getDB();
+  const updatedReport = {
+    ...report,
+    updatedAt: new Date().toISOString(),
+  };
+  await db.put('familyReports', updatedReport);
+  return updatedReport;
+}
+
+export async function deleteFamilyReport(id: number): Promise<void> {
+  const db = await getDB();
+  await db.delete('familyReports', id);
 }
 
 // Task CRUD operations
