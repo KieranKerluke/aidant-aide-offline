@@ -186,8 +186,44 @@ export async function deletePatient(id: number): Promise<void> {
   await db.delete('patients', id);
 }
 
-// Similar CRUD functions for other collections would go here
-// (For sessions, medical reports, family reports, tasks)
+// Task CRUD operations
+export async function createTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
+  const db = await getDB();
+  const now = new Date().toISOString();
+  const newTask: Task = {
+    ...task,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  const id = await db.add('tasks', newTask);
+  return { ...newTask, id: id as number };
+}
+
+export async function getTask(id: number): Promise<Task | undefined> {
+  const db = await getDB();
+  return db.get('tasks', id);
+}
+
+export async function getAllTasks(): Promise<Task[]> {
+  const db = await getDB();
+  return db.getAll('tasks');
+}
+
+export async function updateTask(task: Task): Promise<Task> {
+  const db = await getDB();
+  const updatedTask = {
+    ...task,
+    updatedAt: new Date().toISOString(),
+  };
+  await db.put('tasks', updatedTask);
+  return updatedTask;
+}
+
+export async function deleteTask(id: number): Promise<void> {
+  const db = await getDB();
+  await db.delete('tasks', id);
+}
 
 // Get today's sessions
 export async function getTodaySessions(): Promise<Session[]> {
@@ -211,4 +247,18 @@ export async function getPendingTasks(): Promise<Task[]> {
   const db = await getDB();
   const index = db.transaction('tasks').store.index('by-status');
   return index.getAll('pending');
+}
+
+// Filter tasks by patient
+export async function getTasksByPatient(patientId: number): Promise<Task[]> {
+  const db = await getDB();
+  const index = db.transaction('tasks').store.index('by-patient');
+  return index.getAll(patientId);
+}
+
+// Get tasks by status
+export async function getTasksByStatus(status: Task['status']): Promise<Task[]> {
+  const db = await getDB();
+  const index = db.transaction('tasks').store.index('by-status');
+  return index.getAll(status);
 }
