@@ -10,10 +10,13 @@ const Dialog = DialogPrimitive.Root
 const DialogTrigger = DialogPrimitive.Trigger
 
 const DialogPortal = ({
-  className,
+  // Remove className from props destructuring since it's not in the type
   ...props
 }: DialogPrimitive.DialogPortalProps) => (
-  <DialogPrimitive.Portal className={cn(className)} {...props} />
+  <DialogPrimitive.Portal
+    // Remove className from being passed to the component
+    {...props}
+  />
 )
 DialogPortal.displayName = DialogPrimitive.Portal.displayName
 
