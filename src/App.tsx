@@ -32,7 +32,17 @@ const queryClient = new QueryClient({
  * 1. OAuth Client ID: 868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com
  * 2. Set JavaScript origins to your domain in Google Cloud Console
  * 3. Make sure the Google Calendar API is enabled in your project
- * 4. The API Key needs to be generated in the Google Cloud Console
+ * 4. Generate an API Key in the Google Cloud Console:
+ *    - Go to https://console.cloud.google.com/
+ *    - Navigate to APIs & Services > Credentials
+ *    - Click "Create Credentials" > "API Key"
+ *    - Restrict the key to the Calendar API and your domain
+ *    - Add the key to the Calendar.tsx file API_KEY constant
+ * 
+ * Error 401 (invalid_client) can occur if:
+ * - Your domain isn't added to the authorized JavaScript origins
+ * - The API Key is missing or invalid
+ * - The Google Calendar API isn't enabled
  */
 
 const App = () => (

@@ -7,17 +7,20 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { getAllSessions } from "@/lib/db";
-import { Loader2, CalendarPlus } from "lucide-react";
+import { Loader2, CalendarPlus, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Google Calendar API credentials
+// Google Calendar API credentials - including client ID only (no secret on client-side)
 const GOOGLE_CLIENT_ID = "868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com";
-const API_KEY = "AIzaSyBhFQnz7QCSQpWqgdPFSiIzS9i8Ma2BkrA"; // This is a placeholder API key - you need to replace it with your actual API key
-const SCOPES = "https://www.googleapis.com/auth/calendar";
+// API Key should be configured in Google Cloud Console with proper restrictions
+// NOTE: API Keys should have domain restrictions in Google Cloud Console
+const API_KEY = ""; // Leaving this blank to prompt user to add their own key with proper domain restrictions
 
 export default function Calendar() {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isLoadingGoogleScript, setIsLoadingGoogleScript] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Fetch local sessions
@@ -28,6 +31,9 @@ export default function Calendar() {
 
   // Load the Google API script
   useEffect(() => {
+    // Clear previous errors
+    setAuthError(null);
+    
     const loadGoogleScript = () => {
       setIsLoadingGoogleScript(true);
       
@@ -38,15 +44,36 @@ export default function Calendar() {
         // Load the client library
         window.gapi.load("client:auth2", initClient);
       };
+      script1.onerror = () => {
+        setIsLoadingGoogleScript(false);
+        setAuthError("Failed to load Google API script");
+        toast({
+          title: "Google Calendar Error",
+          description: "Failed to load Google API script",
+          variant: "destructive"
+        });
+      };
       document.body.appendChild(script1);
     };
     
     const initClient = () => {
+      // First check if API Key is provided
+      if (!API_KEY) {
+        setIsLoadingGoogleScript(false);
+        setAuthError("API Key not configured. Please add an API Key in the Calendar.tsx file.");
+        toast({
+          title: "Configuration Error",
+          description: "API Key not configured. Please add an API Key in the Calendar.tsx file.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       window.gapi.client.init({
         apiKey: API_KEY,
         clientId: GOOGLE_CLIENT_ID,
         discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
-        scope: SCOPES,
+        scope: "https://www.googleapis.com/auth/calendar",
       }).then(() => {
         // Listen for sign-in state changes
         window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
@@ -57,9 +84,10 @@ export default function Calendar() {
       }).catch(error => {
         console.error("Error initializing Google API client:", error);
         setIsLoadingGoogleScript(false);
+        setAuthError(error.message || "Failed to initialize Google API client");
         toast({
           title: "Google Calendar Error",
-          description: "Could not initialize Google Calendar API: " + error.message,
+          description: "Could not initialize Google Calendar API: " + (error.message || "Unknown error"),
           variant: "destructive"
         });
       });
@@ -83,9 +111,10 @@ export default function Calendar() {
       if (!isAuthorized) {
         window.gapi.auth2.getAuthInstance().signIn().catch(error => {
           console.error("Sign-in error:", error);
+          setAuthError(error.message || "Failed to sign in to Google");
           toast({
             title: "Authentication Error",
-            description: "Failed to sign in to Google: " + error.message,
+            description: "Failed to sign in to Google: " + (error.message || "Unknown error"),
             variant: "destructive"
           });
         });
@@ -179,10 +208,31 @@ export default function Calendar() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {authError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                {authError}
+                {!API_KEY && (
+                  <div className="mt-2">
+                    <strong>Setup Instructions:</strong>
+                    <ol className="list-decimal pl-5 mt-2 space-y-1">
+                      <li>Go to the Google Cloud Console: <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="underline">https://console.cloud.google.com/</a></li>
+                      <li>Create a new project or select your existing project</li>
+                      <li>Enable the Google Calendar API</li>
+                      <li>Create an API key with appropriate domain restrictions</li>
+                      <li>Add the API key to the Calendar.tsx file</li>
+                    </ol>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="flex flex-wrap items-center gap-4">
             <Button 
               onClick={handleAuthClick} 
-              disabled={isLoadingGoogleScript}
+              disabled={isLoadingGoogleScript || (!API_KEY && !authError)}
               variant={isAuthorized ? "outline" : "default"}
             >
               {isLoadingGoogleScript ? (
