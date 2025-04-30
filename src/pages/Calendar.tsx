@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,12 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllSessions } from "@/lib/db";
 import { Loader2, CalendarPlus, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-// Google Calendar API credentials - including client ID only (no secret on client-side)
-const GOOGLE_CLIENT_ID = "868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com";
-// API Key should be configured in Google Cloud Console with proper restrictions
-// NOTE: API Keys should have domain restrictions in Google Cloud Console
-const API_KEY = "AIzaSyCwwN3O1rzlToLcWVbbuaEeGgi7GpLkW4U"; // Leaving this blank to prompt user to add their own key with proper domain restrictions
+import { GOOGLE_CLIENT_ID, GOOGLE_API_KEY, buildGoogleAuthUrl } from "@/utils/google-auth";
 
 export default function Calendar() {
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -58,7 +52,7 @@ export default function Calendar() {
     
     const initClient = () => {
       // First check if API Key is provided
-      if (!API_KEY) {
+      if (!GOOGLE_API_KEY) {
         setIsLoadingGoogleScript(false);
         setAuthError("API Key not configured. Please add an API Key in the Calendar.tsx file.");
         toast({
@@ -70,7 +64,7 @@ export default function Calendar() {
       }
       
       window.gapi.client.init({
-        apiKey: API_KEY,
+        apiKey: GOOGLE_API_KEY,
         clientId: GOOGLE_CLIENT_ID,
         discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
         scope: "https://www.googleapis.com/auth/calendar",
@@ -213,7 +207,7 @@ export default function Calendar() {
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 {authError}
-                {!API_KEY && (
+                {!GOOGLE_API_KEY && (
                   <div className="mt-2">
                     <strong>Setup Instructions:</strong>
                     <ol className="list-decimal pl-5 mt-2 space-y-1">
@@ -232,7 +226,7 @@ export default function Calendar() {
           <div className="flex flex-wrap items-center gap-4">
             <Button 
               onClick={handleAuthClick} 
-              disabled={isLoadingGoogleScript || (!API_KEY && !authError)}
+              disabled={isLoadingGoogleScript || (!GOOGLE_API_KEY && !authError)}
               variant={isAuthorized ? "outline" : "default"}
             >
               {isLoadingGoogleScript ? (

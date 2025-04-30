@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { GOOGLE_REDIRECT_URI } from "@/utils/google-auth";
 
 // Define the possible states for the OAuth callback process
 type CallbackState = "loading" | "success" | "error";
@@ -51,15 +52,11 @@ export default function OAuthCallback() {
 
         console.log("Authorization code received:", code);
 
-        // Send the code to the backend for token exchange
+        // The Netlify function will handle the code exchange automatically via the redirect rule
+        // We just need to store the tokens that are returned
         try {
-          const response = await fetch('http://localhost:3000/api/auth/google', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code }),
-          });
+          // The tokens should be in the response from our Netlify function
+          const response = await fetch(`/.netlify/functions/google-oauth?code=${encodeURIComponent(code)}`);
 
           if (!response.ok) {
             const errorData = await response.json();
