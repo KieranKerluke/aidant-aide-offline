@@ -33,8 +33,19 @@ interface PairAidantDB extends DBSchema {
 export interface Patient {
   id?: number;
   name: string;
+  fatherName?: string;
+  fatherPhone?: string;
+  motherName?: string;
+  motherPhone?: string;
   dateOfBirth: string; // ISO string
-  contactInfo: string;
+  age?: number;
+  maritalStatus?: string;
+  numberOfChildren?: string;
+  cityOfResidence?: string;
+  personalPhone?: string;
+  illnessDuration?: string;
+  treatingDoctor?: string;
+  contactInfo?: string; // Keeping for backward compatibility
   tags: string[];
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
@@ -96,6 +107,7 @@ export interface Task {
   priority: 'low' | 'medium' | 'high';
   status: 'pending' | 'in-progress' | 'completed';
   patientId?: number; // Optional - can be associated with a patient
+  reminderAt?: string; // ISO string for reminder date/time
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
 }

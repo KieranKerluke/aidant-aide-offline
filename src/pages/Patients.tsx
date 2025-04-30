@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
-import { getAllPatients, Patient } from "@/lib/db";
+import { getAllPatients, Patient, deletePatient } from "@/lib/db";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { 
@@ -24,15 +24,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { deletePatient } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
+import { PatientForm } from "@/components/patient-form";
 
 export default function Patients() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isPatientFormOpen, setIsPatientFormOpen] = useState(false);
+  const [patientToEdit, setPatientToEdit] = useState<Patient | undefined>(undefined);
 
   const loadPatients = async () => {
     try {
@@ -63,7 +65,7 @@ export default function Patients() {
       const query = searchQuery.toLowerCase();
       const filtered = patients.filter(patient => 
         patient.name.toLowerCase().includes(query) ||
-        patient.tags.some(tag => tag.toLowerCase().includes(query))
+        (patient.tags && patient.tags.some(tag => tag.toLowerCase().includes(query)))
       );
       setFilteredPatients(filtered);
     }
@@ -89,6 +91,20 @@ export default function Patients() {
     }
   };
 
+  const handleAddNewPatient = () => {
+    setPatientToEdit(undefined);
+    setIsPatientFormOpen(true);
+  };
+
+  const handleEditPatient = (patient: Patient) => {
+    setPatientToEdit(patient);
+    setIsPatientFormOpen(true);
+  };
+
+  const handleSavePatient = (patient: Patient) => {
+    loadPatients();
+  };
+
   const calculateAge = (dateOfBirth: string) => {
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
@@ -112,11 +128,9 @@ export default function Patients() {
             onChange={e => setSearchQuery(e.target.value)}
             className="max-w-sm"
           />
-          <Button asChild>
-            <Link to="/patients/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Patient
-            </Link>
+          <Button onClick={handleAddNewPatient}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add New Patient
           </Button>
         </div>
 
@@ -129,11 +143,9 @@ export default function Patients() {
             {patients.length === 0 ? (
               <>
                 <p className="text-muted-foreground mb-4">You haven't added any patients yet.</p>
-                <Button asChild>
-                  <Link to="/patients/new">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Your First Patient
-                  </Link>
+                <Button onClick={handleAddNewPatient}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Your First Patient
                 </Button>
               </>
             ) : (
@@ -164,20 +176,22 @@ export default function Patients() {
                       </Link>
                     </TableCell>
                     <TableCell>{calculateAge(patient.dateOfBirth)} years</TableCell>
-                    <TableCell>{patient.contactInfo}</TableCell>
+                    <TableCell>{patient.personalPhone}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {patient.tags.map((tag, index) => (
+                        {patient.tags && patient.tags.map((tag, index) => (
                           <Badge key={index} variant="secondary">{tag}</Badge>
                         ))}
                       </div>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link to={`/patients/${patient.id}`}>
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Link>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleEditPatient(patient)}
+                      >
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
                       </Button>
                       <Button variant="ghost" size="icon" asChild>
                         <Link to={`/patients/${patient.id}/sessions`}>
@@ -215,6 +229,15 @@ export default function Patients() {
           </div>
         )}
       </div>
+
+      {/* Patient Form Dialog */}
+      <PatientForm
+        isOpen={isPatientFormOpen}
+        onOpenChange={setIsPatientFormOpen}
+        patient={patientToEdit}
+        isEdit={!!patientToEdit}
+        onSave={handleSavePatient}
+      />
     </Layout>
   );
 }

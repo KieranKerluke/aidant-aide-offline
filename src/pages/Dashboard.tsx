@@ -1,17 +1,20 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Layout } from "@/components/layout";
-import { getPendingTasks, getTodaySessions, Patient, Session, Task } from "@/lib/db";
+import { getAllTasks, getTodaySessions, Patient, Session, Task } from "@/lib/db";
 import { Calendar, CheckSquare, Plus, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getPatient } from "@/lib/db";
+import { TasksList } from "@/components/tasks-list";
+import { TaskDialog } from "@/components/task-dialog";
 
 export default function Dashboard() {
   const [sessions, setSessions] = useState<Array<Session & { patientName: string }>>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -32,11 +35,11 @@ export default function Dashboard() {
           })
         );
 
-        // Get pending tasks
-        const pendingTasks = await getPendingTasks();
+        // Get all tasks instead of just pending tasks
+        const allTasks = await getAllTasks();
         
         setSessions(sessionsWithPatients);
-        setTasks(pendingTasks);
+        setTasks(allTasks);
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -52,6 +55,23 @@ export default function Dashboard() {
       hour: '2-digit', 
       minute: '2-digit' 
     });
+  };
+
+  const handleEditTask = (task: Task) => {
+    setTaskToEdit(task);
+    setIsTaskDialogOpen(true);
+  };
+
+  const handleDeleteTask = async (taskId: number | undefined) => {
+    // This is just a placeholder - actual deletion would be handled in the Tasks page
+    console.log("Delete task requested for ID:", taskId);
+  };
+
+  const handleSaveTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    // This is just a placeholder - actual saving would be handled in the Tasks page
+    console.log("Save task requested:", taskData);
+    setIsTaskDialogOpen(false);
+    setTaskToEdit(null);
   };
 
   return (
@@ -119,47 +139,40 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle className="text-lg">Pending Tasks</CardTitle>
-            <CardDescription>Tasks that need your attention</CardDescription>
+            <CardTitle className="text-lg">Recent Tasks</CardTitle>
+            <CardDescription>All your tasks in one place</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
-            ) : tasks.length > 0 ? (
-              <div className="space-y-4">
-                {tasks.slice(0, 5).map((task) => (
-                  <div 
-                    key={task.id} 
-                    className="flex items-center justify-between border-b pb-2 last:border-0"
-                  >
-                    <div>
-                      <p className="font-medium">{task.description}</p>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
-                        <span className={`ml-2 inline-block h-2 w-2 rounded-full ${
-                          task.priority === 'high' ? 'bg-red-500' : 
-                          task.priority === 'medium' ? 'bg-yellow-500' : 
-                          'bg-green-500'
-                        }`}></span>
-                        <span>{task.priority} priority</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {tasks.length > 5 && (
-                  <Button variant="link" asChild className="w-full mt-2">
-                    <Link to="/tasks">View all tasks</Link>
-                  </Button>
-                )}
-              </div>
             ) : (
-              <p className="text-muted-foreground">No pending tasks</p>
+              <TasksList 
+                tasks={tasks.slice(0, 6)} 
+                onEdit={handleEditTask}
+                onDelete={handleDeleteTask}
+                emptyMessage="No tasks available"
+              />
+            )}
+            {tasks.length > 6 && (
+              <div className="mt-4 text-center">
+                <Button variant="outline" asChild>
+                  <Link to="/tasks">View all tasks</Link>
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Task Dialog for editing tasks */}
+      <TaskDialog
+        isOpen={isTaskDialogOpen}
+        onOpenChange={setIsTaskDialogOpen}
+        task={taskToEdit}
+        onSave={handleSaveTask}
+      />
     </Layout>
   );
 }

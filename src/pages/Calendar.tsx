@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 const GOOGLE_CLIENT_ID = "868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com";
 // API Key should be configured in Google Cloud Console with proper restrictions
 // NOTE: API Keys should have domain restrictions in Google Cloud Console
-const API_KEY = ""; // Leaving this blank to prompt user to add their own key with proper domain restrictions
+const API_KEY = "AIzaSyCwwN3O1rzlToLcWVbbuaEeGgi7GpLkW4U"; // Leaving this blank to prompt user to add their own key with proper domain restrictions
 
 export default function Calendar() {
   const [date, setDate] = useState<Date | undefined>(new Date());

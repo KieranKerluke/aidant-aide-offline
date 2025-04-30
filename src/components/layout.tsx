@@ -1,8 +1,8 @@
-
 import { ReactNode } from "react";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 import { ThemeToggle } from "./theme-toggle";
+import { NetworkStatus } from "./network-status";
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,6 +18,7 @@ export function Layout({ children, title }: LayoutProps) {
           <h1 className="text-lg font-semibold">{title}</h1>
         </div>
         <div className="flex items-center gap-2">
+          <NetworkStatus showText={false} />
           <ThemeToggle />
         </div>
       </header>

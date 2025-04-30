@@ -1,4 +1,4 @@
-
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +15,10 @@ import SessionReports from "./pages/SessionReports";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
+import OAuthCallback from "./pages/OAuthCallback";
+import { registerServiceWorker, requestNotificationPermission, setupServiceWorkerListener } from "./utils/notifications";
+import { getAllTasks } from "./lib/db";
+import { hydrateReminders } from "./utils/notifications";
 
 // Create a new QueryClient instance
 const queryClient = new QueryClient({
@@ -45,29 +49,55 @@ const queryClient = new QueryClient({
  * - The Google Calendar API isn't enabled
  */
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="system" storageKey="pair-aidant-theme">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/patients" element={<Patients />} />
-            <Route path="/patients/new" element={<NewPatient />} />
-            <Route path="/patients/:id" element={<EditPatient />} />
-            <Route path="/patients/:id/sessions" element={<PatientSessions />} />
-            <Route path="/sessions/:id/reports" element={<SessionReports />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEffect(() => {
+    const initializeApp = async () => {
+      // Register service worker
+      await registerServiceWorker();
+      
+      // Request notification permission
+      await requestNotificationPermission();
+      
+      // Set up service worker listener
+      setupServiceWorkerListener();
+      
+      // Load and hydrate reminders
+      try {
+        const tasks = await getAllTasks();
+        await hydrateReminders(tasks);
+      } catch (error) {
+        console.error('Error loading tasks for reminders:', error);
+      }
+    };
+    
+    initializeApp();
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="system" storageKey="pair-aidant-theme">
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/patients" element={<Patients />} />
+              <Route path="/patients/new" element={<NewPatient />} />
+              <Route path="/patients/:id" element={<EditPatient />} />
+              <Route path="/patients/:id/sessions" element={<PatientSessions />} />
+              <Route path="/sessions/:id/reports" element={<SessionReports />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/oauth2callback" element={<OAuthCallback />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
