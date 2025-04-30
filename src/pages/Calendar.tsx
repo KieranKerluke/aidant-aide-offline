@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllSessions } from "@/lib/db";
 import { Loader2, CalendarPlus, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { GOOGLE_CLIENT_ID, GOOGLE_API_KEY, buildGoogleAuthUrl } from "@/utils/google-auth";
+import { GOOGLE_CLIENT_ID, GOOGLE_API_KEY, GOOGLE_REDIRECT_URI, buildGoogleAuthUrl } from "@/utils/google-auth";
 
 export default function Calendar() {
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -103,15 +103,18 @@ export default function Calendar() {
   const handleAuthClick = () => {
     if (window.gapi && window.gapi.auth2) {
       if (!isAuthorized) {
-        window.gapi.auth2.getAuthInstance().signIn().catch(error => {
-          console.error("Sign-in error:", error);
-          setAuthError(error.message || "Failed to sign in to Google");
-          toast({
-            title: "Authentication Error",
-            description: "Failed to sign in to Google: " + (error.message || "Unknown error"),
-            variant: "destructive"
-          });
-        });
+        try {
+          window.gapi.auth2.getAuthInstance().signIn()
+            .catch(error => {
+              console.error("Sign-in error:", error);
+              // If popup fails, fall back to redirect flow
+              console.log("Falling back to redirect authentication flow");
+              window.location.href = buildGoogleAuthUrl();
+            });
+        } catch (error) {
+          console.error("Critical sign-in error, using redirect:", error);
+          window.location.href = buildGoogleAuthUrl();
+        }
       } else {
         window.gapi.auth2.getAuthInstance().signOut().then(() => {
           toast({
