@@ -6,6 +6,10 @@
 [build.environment]
   GOOGLE_REDIRECT_URI = "https://creative-kleicha-a0928a.netlify.app/oauth2callback"
   VITE_GOOGLE_REDIRECT_URI = "https://creative-kleicha-a0928a.netlify.app/oauth2callback"
+  VITE_GOOGLE_API_KEY = "AIzaSyCwwN3O1rzlToLcWVbbuaEeGgi7GpLkW4U"
+  VITE_GOOGLE_CLIENT_ID = "868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com"
+  GOOGLE_CLIENT_ID = "868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com"
+  GOOGLE_CLIENT_SECRET = "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"
 
 # Redirect rule for OAuth callback
 [[redirects]]
