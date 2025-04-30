@@ -82,17 +82,39 @@ export default function Calendar() {
           console.log("Found stored tokens:", authTokens);
           
           // Set up gapi with access token directly instead of auth flow
+          console.log("RAW TOKEN FROM STORAGE:", authTokensStr);
+          console.log("PARSED TOKEN:", authTokens);
+          console.log("ACCESS TOKEN AVAILABLE:", !!authTokens.access_token);
+          
+          // Make sure the access token exists
+          if (!authTokens.access_token) {
+            throw new Error("No access token found in stored tokens");
+          }
+          
           setIsAuthorized(true);
+          setIsLoadingGoogleScript(true);
+          
+          // First initialize the client
           window.gapi.client.init({
             apiKey: GOOGLE_API_KEY,
+            // Don't include clientId or scope here to avoid auth popup
             discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
           }).then(() => {
-            console.log("Google API client initialized, setting access token");
+            console.log("Google API client initialized");
+            // Explicitly load the Calendar API
+            return window.gapi.client.load('calendar', 'v3');
+          }).then(() => {
+            console.log("Calendar API loaded, setting access token");
             // Direct token access - this is the key part!
-            gapi.client.setToken({
+            window.gapi.client.setToken({
               access_token: authTokens.access_token
             });
             console.log("Access token set successfully");
+            
+            // Test a simple API call to verify the token works
+            return window.gapi.client.calendar.calendarList.list();
+          }).then((response) => {
+            console.log("Calendar list fetch successful:", response);
             setIsLoadingGoogleScript(false);
             toast({
               title: "Google Calendar Connected",

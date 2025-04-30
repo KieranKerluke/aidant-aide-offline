@@ -64,13 +64,21 @@ export default function OAuthCallback() {
           }
 
           const data = await response.json();
+          console.log('RAW RESPONSE FROM OAUTH FUNCTION:', data);
+          
+          // Make sure we have the right token structure
+          // The server response should include tokens object OR be the tokens themselves
+          const tokensObject = data.tokens || data;
           
           // Add timestamp and debug info, then store tokens in localStorage
           const tokenData = {
-            ...data.tokens,
+            ...tokensObject,
             timestamp: new Date().getTime()
           };
-          console.log('Storing token data:', tokenData);
+          
+          console.log('Storing token data in localStorage:', tokenData);
+          console.log('access_token available:', !!tokenData.access_token);
+          
           localStorage.setItem('authTokens', JSON.stringify(tokenData));
           
           // Update state to success
