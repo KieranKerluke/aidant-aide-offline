@@ -34,10 +34,26 @@ exports.handler = async function(event, context) {
     };
   }
 
+  // Check if required environment variables are set
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.error('Missing required environment variables: GOOGLE_CLIENT_ID and/or GOOGLE_CLIENT_SECRET');
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ 
+        error: 'server_configuration_error',
+        message: 'Server is not properly configured for OAuth' 
+      })
+    };
+  }
+
   try {
-    // Google OAuth configuration
-    const clientId = process.env.GOOGLE_CLIENT_ID || '868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com';
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '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';
+    // Google OAuth configuration from environment variables
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://creative-kleicha-a0928a.netlify.app/oauth2callback';
     
     // Exchange the authorization code for tokens

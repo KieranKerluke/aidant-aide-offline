@@ -1,9 +1,9 @@
 // Google OAuth Configuration
-export const GOOGLE_CLIENT_ID = "868112033329-4qcoomm0mbvjmtuq71evimfrrn3h3fpu.apps.googleusercontent.com";
-export const GOOGLE_API_KEY = "AIzaSyCwwN3O1rzlToLcWVbbuaEeGgi7GpLkW4U";
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
+export const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string;
 
 // Get the redirect URI from environment variables or fallback to localhost for development
-export const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'http://localhost:8080/oauth2callback';
+export const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI as string;
 
 // Function to build the Google OAuth URL
 export const buildGoogleAuthUrl = (state?: string) => {
