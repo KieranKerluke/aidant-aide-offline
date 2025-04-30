@@ -65,8 +65,13 @@ export default function OAuthCallback() {
 
           const data = await response.json();
           
-          // Store tokens in localStorage
-          localStorage.setItem('authTokens', JSON.stringify(data.tokens));
+          // Add timestamp and debug info, then store tokens in localStorage
+          const tokenData = {
+            ...data.tokens,
+            timestamp: new Date().getTime()
+          };
+          console.log('Storing token data:', tokenData);
+          localStorage.setItem('authTokens', JSON.stringify(tokenData));
           
           // Update state to success
           setState("success");

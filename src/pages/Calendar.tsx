@@ -23,6 +23,16 @@ export default function Calendar() {
     queryFn: getAllSessions,
   });
 
+  // Check if we have tokens in localStorage
+  useEffect(() => {
+    const storedTokens = localStorage.getItem('authTokens');
+    if (storedTokens) {
+      console.log("Found stored tokens, user should be authenticated");
+      // We have tokens, this means the user is authenticated
+      setIsAuthorized(true);
+    }
+  }, []);
+  
   // Load the Google API script
   useEffect(() => {
     // Clear previous errors
@@ -63,6 +73,50 @@ export default function Calendar() {
         return;
       }
       
+      // Check if we already have tokens (from OAuth redirect)
+      const authTokensStr = localStorage.getItem('authTokens');
+      if (authTokensStr) {
+        try {
+          // Parse the tokens from localStorage
+          const authTokens = JSON.parse(authTokensStr);
+          console.log("Found stored tokens:", authTokens);
+          
+          // Set up gapi with access token directly instead of auth flow
+          setIsAuthorized(true);
+          window.gapi.client.init({
+            apiKey: GOOGLE_API_KEY,
+            discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
+          }).then(() => {
+            console.log("Google API client initialized, setting access token");
+            // Direct token access - this is the key part!
+            gapi.client.setToken({
+              access_token: authTokens.access_token
+            });
+            console.log("Access token set successfully");
+            setIsLoadingGoogleScript(false);
+            toast({
+              title: "Google Calendar Connected",
+              description: "Successfully connected to Google Calendar API"
+            });
+          }).catch(error => {
+            console.error("Error initializing Google API client:", error);
+            setIsLoadingGoogleScript(false);
+            setAuthError("Could not initialize Google Calendar API with stored tokens");
+            localStorage.removeItem('authTokens');
+            toast({
+              title: "Session Expired",
+              description: "Your Google authentication has expired. Please reconnect.",
+              variant: "destructive"
+            });
+          });
+          return;
+        } catch (error) {
+          console.error("Error parsing stored tokens:", error);
+          localStorage.removeItem('authTokens');
+        }
+      }
+      
+      // Normal initialization flow with auth
       window.gapi.client.init({
         apiKey: GOOGLE_API_KEY,
         clientId: GOOGLE_CLIENT_ID,
