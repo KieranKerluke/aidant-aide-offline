@@ -3,6 +3,10 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[build.environment]
+  GOOGLE_REDIRECT_URI = "https://creative-kleicha-a0928a.netlify.app/oauth2callback"
+  VITE_GOOGLE_REDIRECT_URI = "https://creative-kleicha-a0928a.netlify.app/oauth2callback"
+
 # Redirect rule for OAuth callback
 [[redirects]]
   from = "/oauth2callback"
