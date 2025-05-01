@@ -23,13 +23,30 @@ export default function Calendar() {
     queryFn: getAllSessions,
   });
 
-  // Check if we have tokens in localStorage
+  // Check for stale tokens on component mount and clear them if they're too old
   useEffect(() => {
-    const storedTokens = localStorage.getItem('authTokens');
-    if (storedTokens) {
-      console.log("Found stored tokens, user should be authenticated");
-      // We have tokens, this means the user is authenticated
-      setIsAuthorized(true);
+    try {
+      const storedTokensStr = localStorage.getItem('authTokens');
+      if (storedTokensStr) {
+        const storedTokens = JSON.parse(storedTokensStr);
+        console.log("Found stored tokens, checking validity");
+        
+        // Check token age (24 hours max)
+        const tokenTimestamp = storedTokens.timestamp || 0;
+        const now = new Date().getTime();
+        const tokenAgeHours = (now - tokenTimestamp) / (1000 * 60 * 60);
+        
+        if (tokenAgeHours > 24 || !storedTokens.access_token) {
+          console.log("Tokens are stale or invalid, clearing");
+          localStorage.removeItem('authTokens');
+        } else {
+          console.log("Tokens look valid, user should be authenticated");
+          setIsAuthorized(true);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking token validity:", error);
+      localStorage.removeItem('authTokens');
     }
   }, []);
   
@@ -72,6 +89,9 @@ export default function Calendar() {
         });
         return;
       }
+      
+      // Clear any previous errors
+      setAuthError(null);
       
       // Check if we already have tokens (from OAuth redirect)
       const authTokensStr = localStorage.getItem('authTokens');
@@ -139,28 +159,50 @@ export default function Calendar() {
       }
       
       // Normal initialization flow with auth
-      window.gapi.client.init({
-        apiKey: GOOGLE_API_KEY,
-        clientId: GOOGLE_CLIENT_ID,
-        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
-        scope: "https://www.googleapis.com/auth/calendar",
-      }).then(() => {
-        // Listen for sign-in state changes
-        window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-        
-        // Handle the initial sign-in state
-        updateSigninStatus(window.gapi.auth2.getAuthInstance().isSignedIn.get());
-        setIsLoadingGoogleScript(false);
-      }).catch(error => {
-        console.error("Error initializing Google API client:", error);
-        setIsLoadingGoogleScript(false);
-        setAuthError(error.message || "Failed to initialize Google API client");
-        toast({
-          title: "Google Calendar Error",
-          description: "Could not initialize Google Calendar API: " + (error.message || "Unknown error"),
-          variant: "destructive"
+      try {
+        // We'll use a Promise.race with a timeout to avoid hanging forever if gapi has issues
+        const initPromise = window.gapi.client.init({
+          apiKey: GOOGLE_API_KEY,
+          clientId: GOOGLE_CLIENT_ID,
+          discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
+          scope: "https://www.googleapis.com/auth/calendar",
         });
-      });
+        
+        // Add a 10-second timeout as a safety measure
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Google API initialization timed out")), 10000);
+        });
+        
+        Promise.race([initPromise, timeoutPromise])
+          .then(() => {
+            // Listen for sign-in state changes
+            if (window.gapi.auth2 && window.gapi.auth2.getAuthInstance()) {
+              window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+              // Handle the initial sign-in state
+              updateSigninStatus(window.gapi.auth2.getAuthInstance().isSignedIn.get());
+            } else {
+              // If auth2 isn't available for some reason, we'll use the redirect-based auth
+              console.log("Auth2 not available, using redirect auth");
+              setIsAuthorized(false);
+            }
+            setIsLoadingGoogleScript(false);
+          })
+          .catch(error => {
+            console.error("Error initializing Google API client:", error);
+            setIsLoadingGoogleScript(false);
+            
+            // Instead of showing error, automatically redirect to auth flow
+            console.log("Initialization failed, redirecting to auth flow");
+            window.location.href = buildGoogleAuthUrl();
+          });
+      } catch (error) {
+        console.error("Critical error in Google API initialization:", error);
+        setIsLoadingGoogleScript(false);
+        
+        // Automatically redirect to OAuth flow on any failure
+        console.log("Critical initialization error, redirecting to auth flow");
+        window.location.href = buildGoogleAuthUrl();
+      }
     };
     
     const updateSigninStatus = (isSignedIn: boolean) => {
