@@ -688,10 +688,10 @@ export default function Calendar() {
         </Card>
       )}
       
-      {/* Add Event Dialog */}
+      {/* Add Event Dialog - Completely redesigned for better usability */}
       <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
-        <DialogContent className="sm:max-w-[550px] max-h-[80vh] overflow-y-auto p-6">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[500px] h-auto overflow-visible p-4 fixed top-[10%] left-[50%] translate-x-[-50%]">
+          <DialogHeader className="pb-2">
             <DialogTitle>Add Calendar Event</DialogTitle>
             <DialogDescription>
               Create a new event in your Google Calendar.
@@ -719,98 +719,105 @@ export default function Calendar() {
             setEventStartDate(new Date());
             setEventEndDate(new Date(new Date().getTime() + 60 * 60 * 1000));
           }}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="event-title" className="text-right">
-                  Title
-                </Label>
+            <div className="space-y-3">
+              {/* Basic info section */}
+              <div className="space-y-2">
+                <Label htmlFor="event-title">Title</Label>
                 <Input
                   id="event-title"
                   value={eventTitle}
                   onChange={(e) => setEventTitle(e.target.value)}
-                  className="col-span-3"
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="event-location" className="text-right">
-                  Location
-                </Label>
+              
+              <div className="space-y-2">
+                <Label htmlFor="event-location">Location</Label>
                 <Input
                   id="event-location"
                   value={eventLocation}
                   onChange={(e) => setEventLocation(e.target.value)}
-                  className="col-span-3"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="event-description" className="text-right">
-                  Description
-                </Label>
+              
+              <div className="space-y-2">
+                <Label htmlFor="event-description">Description</Label>
                 <Textarea
                   id="event-description"
                   value={eventDescription}
                   onChange={(e) => setEventDescription(e.target.value)}
-                  className="col-span-3"
+                  className="h-20"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Start</Label>
-                <div className="col-span-3">
-                  <div className="flex flex-col space-y-2">
-                    <CalendarComponent
-                      mode="single"
-                      selected={eventStartDate}
-                      onSelect={(date) => date && setEventStartDate(date)}
-                      className="rounded-md border w-full h-[200px]"
-                      initialFocus
+              
+              {/* Date/time section */}
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="space-y-2">
+                  <Label>Start Date & Time</Label>
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      type="date"
+                      value={format(eventStartDate, 'yyyy-MM-dd')}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const [year, month, day] = e.target.value.split('-').map(Number);
+                          const newDate = new Date(eventStartDate);
+                          newDate.setFullYear(year, month - 1, day);
+                          setEventStartDate(newDate);
+                        }
+                      }}
                     />
-                    <div className="flex items-center gap-2">
-                      <Label>Time:</Label>
-                      <Input 
-                        type="time"
-                        value={format(eventStartDate, 'HH:mm')}
-                        onChange={(e) => {
+                    <Input
+                      type="time"
+                      value={format(eventStartDate, 'HH:mm')}
+                      onChange={(e) => {
+                        if (e.target.value) {
                           const [hours, minutes] = e.target.value.split(':').map(Number);
                           const newDate = new Date(eventStartDate);
-                          newDate.setHours(hours);
-                          newDate.setMinutes(minutes);
+                          newDate.setHours(hours, minutes);
                           setEventStartDate(newDate);
-                        }}
-                      />
-                    </div>
+                        }
+                      }}
+                    />
                   </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">End</Label>
-                <div className="col-span-3">
-                  <div className="flex flex-col space-y-2">
-                    <CalendarComponent
-                      mode="single"
-                      selected={eventEndDate}
-                      onSelect={(date) => date && setEventEndDate(date)}
-                      className="rounded-md border w-full h-[200px]"
+                
+                <div className="space-y-2">
+                  <Label>End Date & Time</Label>
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      type="date"
+                      value={format(eventEndDate, 'yyyy-MM-dd')}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const [year, month, day] = e.target.value.split('-').map(Number);
+                          const newDate = new Date(eventEndDate);
+                          newDate.setFullYear(year, month - 1, day);
+                          setEventEndDate(newDate);
+                        }
+                      }}
                     />
-                    <div className="flex items-center gap-2">
-                      <Label>Time:</Label>
-                      <Input 
-                        type="time"
-                        value={format(eventEndDate, 'HH:mm')}
-                        onChange={(e) => {
+                    <Input
+                      type="time"
+                      value={format(eventEndDate, 'HH:mm')}
+                      onChange={(e) => {
+                        if (e.target.value) {
                           const [hours, minutes] = e.target.value.split(':').map(Number);
                           const newDate = new Date(eventEndDate);
-                          newDate.setHours(hours);
-                          newDate.setMinutes(minutes);
+                          newDate.setHours(hours, minutes);
                           setEventEndDate(newDate);
-                        }}
-                      />
-                    </div>
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </div>
             </div>
-            <DialogFooter>
+            
+            <DialogFooter className="pt-4">
+              <Button variant="outline" type="button" onClick={() => setShowAddEventDialog(false)}>
+                Cancel
+              </Button>
               <Button type="submit">
                 Create Event
               </Button>
