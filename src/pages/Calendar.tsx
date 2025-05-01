@@ -690,7 +690,7 @@ export default function Calendar() {
       
       {/* Add Event Dialog */}
       <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
-        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[550px] max-h-[80vh] overflow-y-auto p-6">
           <DialogHeader>
             <DialogTitle>Add Calendar Event</DialogTitle>
             <DialogDescription>
@@ -757,23 +757,56 @@ export default function Calendar() {
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Start</Label>
                 <div className="col-span-3">
-                  <CalendarComponent
-                    mode="single"
-                    selected={eventStartDate}
-                    onSelect={(date) => date && setEventStartDate(date)}
-                    className="rounded-md border"
-                  />
+                  <div className="flex flex-col space-y-2">
+                    <CalendarComponent
+                      mode="single"
+                      selected={eventStartDate}
+                      onSelect={(date) => date && setEventStartDate(date)}
+                      className="rounded-md border w-full h-[200px]"
+                      initialFocus
+                    />
+                    <div className="flex items-center gap-2">
+                      <Label>Time:</Label>
+                      <Input 
+                        type="time"
+                        value={format(eventStartDate, 'HH:mm')}
+                        onChange={(e) => {
+                          const [hours, minutes] = e.target.value.split(':').map(Number);
+                          const newDate = new Date(eventStartDate);
+                          newDate.setHours(hours);
+                          newDate.setMinutes(minutes);
+                          setEventStartDate(newDate);
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">End</Label>
                 <div className="col-span-3">
-                  <CalendarComponent
-                    mode="single"
-                    selected={eventEndDate}
-                    onSelect={(date) => date && setEventEndDate(date)}
-                    className="rounded-md border"
-                  />
+                  <div className="flex flex-col space-y-2">
+                    <CalendarComponent
+                      mode="single"
+                      selected={eventEndDate}
+                      onSelect={(date) => date && setEventEndDate(date)}
+                      className="rounded-md border w-full h-[200px]"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Label>Time:</Label>
+                      <Input 
+                        type="time"
+                        value={format(eventEndDate, 'HH:mm')}
+                        onChange={(e) => {
+                          const [hours, minutes] = e.target.value.split(':').map(Number);
+                          const newDate = new Date(eventEndDate);
+                          newDate.setHours(hours);
+                          newDate.setMinutes(minutes);
+                          setEventEndDate(newDate);
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
