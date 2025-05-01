@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { format, addDays, isSameDay, parseISO, startOfWeek, endOfWeek, addWeeks, subWeeks, startOfDay, endOfDay, eachDayOfInterval, isToday } from "date-fns";
+import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from "date-fns";
 import {
   Card,
   CardContent,
@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+import { Toaster as CustomToaster } from "@/components/ui/toaster";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
 import { getAllSessions } from "@/lib/db";
@@ -45,7 +46,6 @@ interface CalendarEvent {
     timeZone?: string;
   };
   htmlLink?: string;
-  colorId?: string;
 }
 
 export default function Calendar() {
@@ -528,12 +528,10 @@ export default function Calendar() {
             </div>
           </div>
         ) : (
-          <div className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Google Calendar View</CardTitle>
-              </CardHeader>
-              <CardContent>
+            </p>
+          )}
+        </CardContent>
+      </Card>
       
       <Card>
         <CardHeader>
@@ -952,11 +950,6 @@ export default function Calendar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
     </Layout>
   );
 }
