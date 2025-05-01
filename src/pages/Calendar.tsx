@@ -690,7 +690,7 @@ export default function Calendar() {
       
       {/* Add Event Dialog */}
       <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Calendar Event</DialogTitle>
             <DialogDescription>
@@ -788,7 +788,7 @@ export default function Calendar() {
       
       {/* Edit Event Dialog */}
       <Dialog open={showEditEventDialog} onOpenChange={setShowEditEventDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Event</DialogTitle>
             <DialogDescription>
