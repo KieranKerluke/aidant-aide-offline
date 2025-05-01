@@ -653,90 +653,92 @@ export default function Calendar() {
               Create a new event in your Google Calendar.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="event-title" className="text-right">
-                Title
-              </Label>
-              <Input
-                id="event-title"
-                value={eventTitle}
-                onChange={(e) => setEventTitle(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="event-location" className="text-right">
-                Location
-              </Label>
-              <Input
-                id="event-location"
-                value={eventLocation}
-                onChange={(e) => setEventLocation(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="event-description" className="text-right">
-                Description
-              </Label>
-              <Textarea
-                id="event-description"
-                value={eventDescription}
-                onChange={(e) => setEventDescription(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Start</Label>
-              <div className="col-span-3">
-                <CalendarComponent
-                  mode="single"
-                  selected={eventStartDate}
-                  onSelect={(date) => date && setEventStartDate(date)}
-                  className="rounded-md border"
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            // Create event using our new function
+            createCalendarEvent({
+              summary: eventTitle,
+              location: eventLocation,
+              description: eventDescription,
+              start: {
+                dateTime: eventStartDate.toISOString()
+              },
+              end: {
+                dateTime: eventEndDate.toISOString()
+              }
+            });
+            // Close dialog and reset form
+            setShowAddEventDialog(false);
+            setEventTitle('');
+            setEventLocation('');
+            setEventDescription('');
+            setEventStartDate(new Date());
+            setEventEndDate(new Date(new Date().getTime() + 60 * 60 * 1000));
+          }}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="event-title" className="text-right">
+                  Title
+                </Label>
+                <Input
+                  id="event-title"
+                  value={eventTitle}
+                  onChange={(e) => setEventTitle(e.target.value)}
+                  className="col-span-3"
+                  required
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">End</Label>
-              <div className="col-span-3">
-                <CalendarComponent
-                  mode="single"
-                  selected={eventEndDate}
-                  onSelect={(date) => date && setEventEndDate(date)}
-                  className="rounded-md border"
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="event-location" className="text-right">
+                  Location
+                </Label>
+                <Input
+                  id="event-location"
+                  value={eventLocation}
+                  onChange={(e) => setEventLocation(e.target.value)}
+                  className="col-span-3"
                 />
               </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="event-description" className="text-right">
+                  Description
+                </Label>
+                <Textarea
+                  id="event-description"
+                  value={eventDescription}
+                  onChange={(e) => setEventDescription(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Start</Label>
+                <div className="col-span-3">
+                  <CalendarComponent
+                    mode="single"
+                    selected={eventStartDate}
+                    onSelect={(date) => date && setEventStartDate(date)}
+                    className="rounded-md border"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">End</Label>
+                <div className="col-span-3">
+                  <CalendarComponent
+                    mode="single"
+                    selected={eventEndDate}
+                    onSelect={(date) => date && setEventEndDate(date)}
+                    className="rounded-md border"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button 
-              onClick={() => {
-                // Create event using our new function
-                createCalendarEvent({
-                  summary: eventTitle,
-                  location: eventLocation,
-                  description: eventDescription,
-                  start: {
-                    dateTime: eventStartDate.toISOString()
-                  },
-                  end: {
-                    dateTime: eventEndDate.toISOString()
-                  }
-                });
-                // Close dialog and reset form
-                setShowAddEventDialog(false);
-                setEventTitle('');
-                setEventLocation('');
-                setEventDescription('');
-                setEventStartDate(new Date());
-                setEventEndDate(new Date(new Date().getTime() + 60 * 60 * 1000));
-              }}
-            >
-              Create Event
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="submit">
+                Create Event
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
       
