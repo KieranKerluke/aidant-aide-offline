@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { format, addDays, isSameDay, parseISO, startOfWeek, endOfWeek, addWeeks, subWeeks, startOfDay, endOfDay, eachDayOfInterval, isToday } from "date-fns";
+import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from "date-fns";
 import {
   Card,
   CardContent,
@@ -24,11 +24,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Toaster as CustomToaster } from "@/components/ui/toaster";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
 import { getAllSessions } from "@/lib/db";
 import { useNavigate } from "react-router-dom";
 import { GOOGLE_CLIENT_ID, GOOGLE_API_KEY, GOOGLE_REDIRECT_URI, buildGoogleAuthUrl } from "@/utils/google-auth";
+
+// Add TypeScript declarations for the Google API client
+declare global {
+  interface Window {
+    gapi: any; // Using 'any' type to avoid conflicts with existing typings
+  }
+}
 
 // Define interface for Google Calendar events
 interface CalendarEvent {
@@ -45,7 +53,6 @@ interface CalendarEvent {
     timeZone?: string;
   };
   htmlLink?: string;
-  colorId?: string;
 }
 
 export default function Calendar() {
@@ -63,12 +70,32 @@ export default function Calendar() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   
+  // Common form state
+  const [entryType, setEntryType] = useState<"event" | "task" | "appointment">("event");
+  
   // Event form state
   const [eventTitle, setEventTitle] = useState('');
   const [eventLocation, setEventLocation] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [eventStartDate, setEventStartDate] = useState<Date>(new Date());
   const [eventEndDate, setEventEndDate] = useState<Date>(new Date(new Date().getTime() + 60 * 60 * 1000));
+  const [participants, setParticipants] = useState<string[]>([]);
+  const [reminders, setReminders] = useState(true);
+  
+  // Task form state
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState<Date>(new Date());
+  const [taskPriority, setTaskPriority] = useState<"low" | "medium" | "high">("medium");
+  const [taskStatus, setTaskStatus] = useState<"not-started" | "in-progress" | "completed">("not-started");
+  const [taskSubtasks, setTaskSubtasks] = useState<{id: string, title: string, completed: boolean}[]>([]);
+  
+  // Appointment form state
+  const [appointmentTitle, setAppointmentTitle] = useState('');
+  const [appointmentDateTime, setAppointmentDateTime] = useState<Date>(new Date());
+  const [appointmentDuration, setAppointmentDuration] = useState(30); // minutes
+  const [appointmentLocation, setAppointmentLocation] = useState('');
+  const [appointmentParticipants, setAppointmentParticipants] = useState<string[]>([]);
+  const [appointmentStatus, setAppointmentStatus] = useState<"pending" | "accepted" | "declined">("pending");
   
   // Dialog state
   const [showAddEventDialog, setShowAddEventDialog] = useState(false);
@@ -528,12 +555,10 @@ export default function Calendar() {
             </div>
           </div>
         ) : (
-          <div className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Google Calendar View</CardTitle>
-              </CardHeader>
-              <CardContent>
+            </p>
+          )}
+        </CardContent>
+      </Card>
       
       <Card>
         <CardHeader>
@@ -609,17 +634,16 @@ export default function Calendar() {
                 {isLoadingEvents ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className="h-4 w-4" />
                 )}
-                Refresh Events
               </Button>
-              <Button 
-                onClick={() => setShowAddEventDialog(true)}
+              <Button
+                size="sm"
                 variant="outline"
-                className="ml-2"
+                onClick={() => setShowAddEventDialog(true)}
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Event
+                <Plus className="h-4 w-4 mr-2" />
+                New Event
               </Button>
             </div>
           </CardHeader>
@@ -688,69 +712,107 @@ export default function Calendar() {
         </Card>
       )}
       
-      {/* Basic Add Event Dialog */}
+      {/* Add Event Dialog */}
       <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Add Event</DialogTitle>
+            <DialogTitle>Add Calendar Event</DialogTitle>
+            <DialogDescription>
+              Create a new event in your Google Calendar.
+            </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            // Create event using our new function
+            createCalendarEvent({
+              summary: eventTitle,
+              location: eventLocation,
+              description: eventDescription,
+              start: {
+                dateTime: eventStartDate.toISOString()
+              },
+              end: {
+                dateTime: eventEndDate.toISOString()
+              }
+            });
+            // Close dialog and reset form
+            setShowAddEventDialog(false);
+            setEventTitle('');
+            setEventLocation('');
+            setEventDescription('');
+            setEventStartDate(new Date());
+            setEventEndDate(new Date(new Date().getTime() + 60 * 60 * 1000));
+          }}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="event-title" className="text-right">
+                  Title
+                </Label>
                 <Input
-                  id="title"
+                  id="event-title"
                   value={eventTitle}
                   onChange={(e) => setEventTitle(e.target.value)}
-                  className="mt-1"
+                  className="col-span-3"
+                  required
                 />
               </div>
-              
-              <div className="flex gap-4">
-                <div className="w-1/2">
-                  <Label>Start</Label>
-                  <Input
-                    type="datetime-local"
-                    value={format(eventStartDate, "yyyy-MM-dd'T'HH:mm")}
-                    onChange={(e) => e.target.value && setEventStartDate(new Date(e.target.value))}
-                    className="mt-1"
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="event-location" className="text-right">
+                  Location
+                </Label>
+                <Input
+                  id="event-location"
+                  value={eventLocation}
+                  onChange={(e) => setEventLocation(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="event-description" className="text-right">
+                  Description
+                </Label>
+                <Textarea
+                  id="event-description"
+                  value={eventDescription}
+                  onChange={(e) => setEventDescription(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Start</Label>
+                <div className="col-span-3">
+                  <CalendarComponent
+                    mode="single"
+                    selected={eventStartDate}
+                    onSelect={(date) => date && setEventStartDate(date)}
+                    className="rounded-md border"
                   />
                 </div>
-                <div className="w-1/2">
-                  <Label>End</Label>
-                  <Input
-                    type="datetime-local"
-                    value={format(eventEndDate, "yyyy-MM-dd'T'HH:mm")}
-                    onChange={(e) => e.target.value && setEventEndDate(new Date(e.target.value))}
-                    className="mt-1"
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">End</Label>
+                <div className="col-span-3">
+                  <CalendarComponent
+                    mode="single"
+                    selected={eventEndDate}
+                    onSelect={(date) => date && setEventEndDate(date)}
+                    className="rounded-md border"
                   />
                 </div>
               </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={() => {
-                // Simple event creation
-                createCalendarEvent({
-                  summary: eventTitle,
-                  location: "",
-                  description: "",
-                  start: { dateTime: eventStartDate.toISOString() },
-                  end: { dateTime: eventEndDate.toISOString() }
-                });
-                setShowAddEventDialog(false);
-              }}
-            >
-              Create Event
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="submit">
+                Create Event
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
       
       {/* Edit Event Dialog */}
       <Dialog open={showEditEventDialog} onOpenChange={setShowEditEventDialog}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Event</DialogTitle>
             <DialogDescription>
@@ -914,11 +976,7 @@ export default function Calendar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
-    </Layout>
-  );
+    </div>
+  </Layout>
+)
 }

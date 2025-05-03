@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from "date-fns";
+import { format, addDays, isSameDay, parseISO, startOfWeek, endOfWeek, addWeeks, subWeeks, startOfDay, endOfDay, eachDayOfInterval, isToday } from "date-fns";
 import {
   Card,
   CardContent,
@@ -24,7 +24,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Toaster as CustomToaster } from "@/components/ui/toaster";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
 import { getAllSessions } from "@/lib/db";
@@ -46,6 +45,7 @@ interface CalendarEvent {
     timeZone?: string;
   };
   htmlLink?: string;
+  colorId?: string;
 }
 
 export default function Calendar() {
@@ -63,12 +63,32 @@ export default function Calendar() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   
+  // Common form state
+  const [entryType, setEntryType] = useState<"event" | "task" | "appointment">("event");
+  
   // Event form state
   const [eventTitle, setEventTitle] = useState('');
   const [eventLocation, setEventLocation] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [eventStartDate, setEventStartDate] = useState<Date>(new Date());
   const [eventEndDate, setEventEndDate] = useState<Date>(new Date(new Date().getTime() + 60 * 60 * 1000));
+  const [participants, setParticipants] = useState<string[]>([]);
+  const [reminders, setReminders] = useState(true);
+  
+  // Task form state
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState<Date>(new Date());
+  const [taskPriority, setTaskPriority] = useState<"low" | "medium" | "high">("medium");
+  const [taskStatus, setTaskStatus] = useState<"not-started" | "in-progress" | "completed">("not-started");
+  const [taskSubtasks, setTaskSubtasks] = useState<{id: string, title: string, completed: boolean}[]>([]);
+  
+  // Appointment form state
+  const [appointmentTitle, setAppointmentTitle] = useState('');
+  const [appointmentDateTime, setAppointmentDateTime] = useState<Date>(new Date());
+  const [appointmentDuration, setAppointmentDuration] = useState(30); // minutes
+  const [appointmentLocation, setAppointmentLocation] = useState('');
+  const [appointmentParticipants, setAppointmentParticipants] = useState<string[]>([]);
+  const [appointmentStatus, setAppointmentStatus] = useState<"pending" | "accepted" | "declined">("pending");
   
   // Dialog state
   const [showAddEventDialog, setShowAddEventDialog] = useState(false);
@@ -477,13 +497,43 @@ export default function Calendar() {
                     </>
                   )}
                 </Button>
-                <Button 
-                  onClick={() => setShowAddEventDialog(true)}
-                  size="sm"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Event
-                </Button>
+                <div className="flex space-x-2">
+                  <Button 
+                    onClick={() => {
+                      setEntryType("event");
+                      setShowAddEventDialog(true);
+                    }}
+                    size="sm"
+                    variant={entryType === "event" ? "default" : "outline"}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    Add Event
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => {
+                      setEntryType("task");
+                      setShowAddEventDialog(true);
+                    }}
+                    size="sm"
+                    variant={entryType === "task" ? "default" : "outline"}
+                  >
+                    <CalendarPlus className="mr-2 h-4 w-4" />
+                    Add Task
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => {
+                      setEntryType("appointment");
+                      setShowAddEventDialog(true);
+                    }}
+                    size="sm"
+                    variant={entryType === "appointment" ? "default" : "outline"}
+                  >
+                    <CalendarPlus className="mr-2 h-4 w-4" />
+                    Add Appointment
+                  </Button>
+                </div>
               </>
             )}
           </div>
@@ -528,19 +578,12 @@ export default function Calendar() {
             </div>
           </div>
         ) : (
-            </p>
-          )}
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Calendar View</CardTitle>
-          <CardDescription>
-            View and manage your sessions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          <div className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Google Calendar View</CardTitle>
+              </CardHeader>
+              <CardContent>
           <div className="flex justify-center">
             <CalendarComponent
               mode="single"
@@ -569,25 +612,6 @@ export default function Calendar() {
                     );
                   })
                   .map(session => (
-                    <div key={session.id} className="p-3 border rounded-md">
-                      <p><strong>Patient ID:</strong> {session.patientId}</p>
-                      <p><strong>Time:</strong> {new Date(session.date).toLocaleTimeString()}</p>
-                      <p><strong>Duration:</strong> {session.duration} minutes</p>
-                      <p><strong>Location:</strong> {session.location}</p>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-muted-foreground">No sessions on this date</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Google Calendar Events Card */}
-      {isAuthorized && (
-        <Card className="mt-6">
-          <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Your Google Calendar</CardTitle>
               <CardDescription>
@@ -686,107 +710,548 @@ export default function Calendar() {
         </Card>
       )}
       
-      {/* Add Event Dialog */}
+      {/* Smart Calendar Entry Dialog */}
       <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-w-[600px] max-h-[90vh] overflow-y-auto p-6 rounded-xl shadow-lg">
           <DialogHeader>
-            <DialogTitle>Add Calendar Event</DialogTitle>
+            <DialogTitle className="text-xl font-bold">
+              {entryType === "event" && "Add Event"}
+              {entryType === "task" && "Add Task"}
+              {entryType === "appointment" && "Add Appointment"}
+            </DialogTitle>
             <DialogDescription>
-              Create a new event in your Google Calendar.
+              {entryType === "event" && "Schedule a new event in your calendar"}
+              {entryType === "task" && "Create a new task to track"}
+              {entryType === "appointment" && "Schedule a meeting with others"}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            // Create event using our new function
-            createCalendarEvent({
-              summary: eventTitle,
-              location: eventLocation,
-              description: eventDescription,
-              start: {
-                dateTime: eventStartDate.toISOString()
-              },
-              end: {
-                dateTime: eventEndDate.toISOString()
-              }
-            });
-            // Close dialog and reset form
-            setShowAddEventDialog(false);
-            setEventTitle('');
-            setEventLocation('');
-            setEventDescription('');
-            setEventStartDate(new Date());
-            setEventEndDate(new Date(new Date().getTime() + 60 * 60 * 1000));
-          }}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="event-title" className="text-right">
-                  Title
+          
+          {/* EVENT FORM */}
+          {entryType === "event" && (
+            <div className="py-4 space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="event-title" className="flex items-center text-sm font-medium">
+                  <span className="mr-2">📝</span> Title
                 </Label>
                 <Input
                   id="event-title"
                   value={eventTitle}
                   onChange={(e) => setEventTitle(e.target.value)}
-                  className="col-span-3"
-                  required
+                  className="rounded-md"
+                  placeholder="Enter event title"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="event-location" className="text-right">
-                  Location
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="event-start" className="flex items-center text-sm font-medium">
+                    <span className="mr-2">🕒</span> Start
+                  </Label>
+                  <Input
+                    id="event-start"
+                    type="datetime-local"
+                    value={format(eventStartDate, "yyyy-MM-dd'T'HH:mm")}
+                    onChange={(e) => e.target.value && setEventStartDate(new Date(e.target.value))}
+                    className="rounded-md"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="event-end" className="flex items-center text-sm font-medium">
+                    <span className="mr-2">🏁</span> End
+                  </Label>
+                  <Input
+                    id="event-end"
+                    type="datetime-local"
+                    value={format(eventEndDate, "yyyy-MM-dd'T'HH:mm")}
+                    onChange={(e) => e.target.value && setEventEndDate(new Date(e.target.value))}
+                    className="rounded-md"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="event-location" className="flex items-center text-sm font-medium">
+                  <span className="mr-2">📍</span> Location
                 </Label>
                 <Input
                   id="event-location"
                   value={eventLocation}
                   onChange={(e) => setEventLocation(e.target.value)}
-                  className="col-span-3"
+                  className="rounded-md"
+                  placeholder="Enter location"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="event-description" className="text-right">
-                  Description
+              
+              <div className="space-y-2">
+                <Label htmlFor="event-description" className="flex items-center text-sm font-medium">
+                  <span className="mr-2">📄</span> Description
                 </Label>
                 <Textarea
                   id="event-description"
                   value={eventDescription}
                   onChange={(e) => setEventDescription(e.target.value)}
-                  className="col-span-3"
+                  className="rounded-md min-h-[100px]"
+                  placeholder="Add details about this event..."
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Start</Label>
-                <div className="col-span-3">
-                  <CalendarComponent
-                    mode="single"
-                    selected={eventStartDate}
-                    onSelect={(date) => date && setEventStartDate(date)}
-                    className="rounded-md border"
+              
+              <div className="space-y-2">
+                <Label htmlFor="event-participants" className="flex items-center text-sm font-medium">
+                  <span className="mr-2">👥</span> Participants
+                </Label>
+                <div className="flex flex-wrap gap-2 p-2 border rounded-md">
+                  {participants.map((participant, index) => (
+                    <div key={index} className="flex items-center bg-muted px-2 py-1 rounded-full text-sm">
+                      {participant}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 ml-1"
+                        onClick={() => {
+                          setParticipants(participants.filter((_, i) => i !== index));
+                        }}
+                      >
+                        <span>×</span>
+                      </Button>
+                    </div>
+                  ))}
+                  <Input
+                    className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-7 text-sm"
+                    placeholder="Add participant..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.currentTarget.value) {
+                        e.preventDefault();
+                        setParticipants([...participants, e.currentTarget.value]);
+                        e.currentTarget.value = '';
+                      }
+                    }}
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">End</Label>
-                <div className="col-span-3">
-                  <CalendarComponent
-                    mode="single"
-                    selected={eventEndDate}
-                    onSelect={(date) => date && setEventEndDate(date)}
-                    className="rounded-md border"
-                  />
-                </div>
+              
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="event-reminders" className="flex items-center">
+                  <span className="mr-2">🔔</span> Reminders
+                </Label>
+                <Switch
+                  checked={reminders}
+                  onCheckedChange={setReminders}
+                  id="event-reminders"
+                />
               </div>
+              
+              <DialogFooter className="pt-4">
+                <Button variant="outline" onClick={() => setShowAddEventDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    createCalendarEvent({
+                      summary: eventTitle,
+                      location: eventLocation,
+                      description: eventDescription,
+                      start: { dateTime: eventStartDate.toISOString() },
+                      end: { dateTime: eventEndDate.toISOString() }
+                    });
+                    setShowAddEventDialog(false);
+                  }}
+                >
+                  Create Event
+                </Button>
+              </DialogFooter>
             </div>
-            <DialogFooter>
-              <Button type="submit">
-                Create Event
-              </Button>
-            </DialogFooter>
-          </form>
+          )}
+          
+          {/* TASK FORM */}
+          {entryType === "task" && (
+            <div className="py-4 space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="task-title" className="flex items-center text-sm font-medium">
+                  Title
+                </Label>
+                <Input
+                  id="task-title"
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
+                  className="rounded-md"
+                  placeholder="Enter task title"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="task-due-date" className="flex items-center text-sm font-medium">
+                  Due Date
+                </Label>
+                <Input
+                  id="task-due-date"
+                  type="date"
+                  value={format(taskDueDate, "yyyy-MM-dd")}
+                  onChange={(e) => e.target.value && setTaskDueDate(new Date(e.target.value))}
+                  className="rounded-md"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Priority</Label>
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant={taskPriority === "low" ? "default" : "outline"}
+                    className={taskPriority === "low" ? "bg-green-600 hover:bg-green-700" : "border-green-600 text-green-600 hover:bg-green-50"}
+                    onClick={() => setTaskPriority("low")}
+                  >
+                    Low
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={taskPriority === "medium" ? "default" : "outline"}
+                    className={taskPriority === "medium" ? "bg-orange-600 hover:bg-orange-700" : "border-orange-600 text-orange-600 hover:bg-orange-50"}
+                    onClick={() => setTaskPriority("medium")}
+                  >
+                    Medium
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={taskPriority === "high" ? "default" : "outline"}
+                    className={taskPriority === "high" ? "bg-red-600 hover:bg-red-700" : "border-red-600 text-red-600 hover:bg-red-50"}
+                    onClick={() => setTaskPriority("high")}
+                  >
+                    High
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status</Label>
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant={taskStatus === "not-started" ? "default" : "outline"}
+                    onClick={() => setTaskStatus("not-started")}
+                  >
+                    Not Started
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={taskStatus === "in-progress" ? "default" : "outline"}
+                    onClick={() => setTaskStatus("in-progress")}
+                  >
+                    In Progress
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={taskStatus === "completed" ? "default" : "outline"}
+                    onClick={() => setTaskStatus("completed")}
+                  >
+                    Completed
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Subtasks</Label>
+                
+                {taskSubtasks.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {taskSubtasks.map((subtask, index) => (
+                      <div key={subtask.id} className="flex items-center space-x-2 p-2 border rounded-md">
+                        <input
+                          type="checkbox"
+                          checked={subtask.completed}
+                          onChange={() => {
+                            const newSubtasks = [...taskSubtasks];
+                            newSubtasks[index].completed = !newSubtasks[index].completed;
+                            setTaskSubtasks(newSubtasks);
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <span className={subtask.completed ? "line-through text-muted-foreground" : ""}>{subtask.title}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 ml-auto"
+                          onClick={() => {
+                            setTaskSubtasks(taskSubtasks.filter((_, i) => i !== index));
+                          }}
+                        >
+                          <span>×</span>
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    {/* Progress bar */}
+                    <div className="mt-4">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary"
+                          style={{
+                            width: `${taskSubtasks.filter(t => t.completed).length / taskSubtasks.length * 100}%`
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {taskSubtasks.filter(t => t.completed).length} of {taskSubtasks.length} completed
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex">
+                  <Input
+                    placeholder="Add a subtask..."
+                    className="rounded-l-md"
+                    id="new-subtask"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.currentTarget.value) {
+                        e.preventDefault();
+                        setTaskSubtasks([
+                          ...taskSubtasks, 
+                          { id: Math.random().toString(36).substr(2, 9), title: e.currentTarget.value, completed: false }
+                        ]);
+                        e.currentTarget.value = '';
+                      }
+                    }}
+                  />
+                  <Button 
+                    className="rounded-l-none"
+                    onClick={() => {
+                      const input = document.getElementById('new-subtask') as HTMLInputElement;
+                      if (input && input.value) {
+                        setTaskSubtasks([
+                          ...taskSubtasks, 
+                          { id: Math.random().toString(36).substr(2, 9), title: input.value, completed: false }
+                        ]);
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    + Add
+                  </Button>
+                </div>
+              </div>
+              
+              <DialogFooter className="pt-4">
+                <Button variant="outline" onClick={() => setShowAddEventDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Here we'd normally save the task
+                    // For this demo, we'll convert it to a calendar event
+                    createCalendarEvent({
+                      summary: `[Task] ${taskTitle} (${taskPriority.toUpperCase()})`,
+                      description: `Status: ${taskStatus}
+Subtasks: ${taskSubtasks.map(t => `${t.completed ? '✓' : '○'} ${t.title}`).join('
+')}`,
+                      start: { dateTime: taskDueDate.toISOString() },
+                      end: { dateTime: new Date(taskDueDate.getTime() + 30 * 60000).toISOString() }  // 30 min duration
+                    });
+                    setShowAddEventDialog(false);
+                  }}
+                >
+                  Create Task
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+          
+          {/* APPOINTMENT FORM */}
+          {entryType === "appointment" && (
+            <div className="py-4">
+              <div className="grid grid-cols-2 gap-6">
+                {/* Left column */}
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="appointment-title" className="text-sm font-medium">
+                      Title
+                    </Label>
+                    <Input
+                      id="appointment-title"
+                      value={appointmentTitle}
+                      onChange={(e) => setAppointmentTitle(e.target.value)}
+                      className="rounded-md"
+                      placeholder="Enter appointment title"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="appointment-date-time" className="text-sm font-medium">
+                      Date & Time
+                    </Label>
+                    <Input
+                      id="appointment-date-time"
+                      type="datetime-local"
+                      value={format(appointmentDateTime, "yyyy-MM-dd'T'HH:mm")}
+                      onChange={(e) => e.target.value && setAppointmentDateTime(new Date(e.target.value))}
+                      className="rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="appointment-duration" className="text-sm font-medium">
+                      Duration (minutes)
+                    </Label>
+                    <div className="flex rounded-md overflow-hidden">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-r-none px-3"
+                        onClick={() => setAppointmentDuration(Math.max(15, appointmentDuration - 15))}
+                      >
+                        -
+                      </Button>
+                      <Input
+                        id="appointment-duration"
+                        type="number"
+                        min="15"
+                        step="15"
+                        value={appointmentDuration}
+                        onChange={(e) => setAppointmentDuration(parseInt(e.target.value) || 30)}
+                        className="rounded-none text-center"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-l-none px-3"
+                        onClick={() => setAppointmentDuration(appointmentDuration + 15)}
+                      >
+                        +
+                      </Button>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm text-muted-foreground mt-1">
+                      <div className="flex gap-2">
+                        <button onClick={() => setAppointmentDuration(15)} className="hover:underline">15m</button>
+                        <button onClick={() => setAppointmentDuration(30)} className="hover:underline">30m</button>
+                        <button onClick={() => setAppointmentDuration(45)} className="hover:underline">45m</button>
+                        <button onClick={() => setAppointmentDuration(60)} className="hover:underline">1h</button>
+                      </div>
+                      <span>
+                        Ends at {format(new Date(appointmentDateTime.getTime() + appointmentDuration * 60000), "HH:mm")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Right column */}
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="appointment-location" className="text-sm font-medium flex items-center">
+                      <span className="mr-2">📍</span> Location
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="appointment-location"
+                        value={appointmentLocation}
+                        onChange={(e) => setAppointmentLocation(e.target.value)}
+                        className="rounded-md"
+                        placeholder="Office or Google Meet..."
+                      />
+                      {appointmentLocation.startsWith('http') && (
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-blue-600">
+                          🔗
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="appointment-participants" className="text-sm font-medium flex items-center">
+                      <span className="mr-2">👥</span> Participants
+                    </Label>
+                    <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[80px]">
+                      {appointmentParticipants.map((participant, index) => (
+                        <div key={index} className="flex items-center bg-muted px-2 py-1 rounded-full text-sm">
+                          {participant}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 ml-1"
+                            onClick={() => {
+                              setAppointmentParticipants(appointmentParticipants.filter((_, i) => i !== index));
+                            }}
+                          >
+                            <span>×</span>
+                          </Button>
+                        </div>
+                      ))}
+                      <Input
+                        className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-7 text-sm"
+                        placeholder="Add participant..."
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.currentTarget.value) {
+                            e.preventDefault();
+                            setAppointmentParticipants([...appointmentParticipants, e.currentTarget.value]);
+                            e.currentTarget.value = '';
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Status</Label>
+                    <div className="flex space-x-2">
+                      <Button
+                        type="button"
+                        variant={appointmentStatus === "pending" ? "default" : "outline"}
+                        onClick={() => setAppointmentStatus("pending")}
+                        className={appointmentStatus === "pending" ? "bg-yellow-600 hover:bg-yellow-700" : ""}
+                      >
+                        Pending
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={appointmentStatus === "accepted" ? "default" : "outline"}
+                        onClick={() => setAppointmentStatus("accepted")}
+                        className={appointmentStatus === "accepted" ? "bg-green-600 hover:bg-green-700" : ""}
+                      >
+                        ✓ Accepted
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={appointmentStatus === "declined" ? "default" : "outline"}
+                        onClick={() => setAppointmentStatus("declined")}
+                        className={appointmentStatus === "declined" ? "bg-red-600 hover:bg-red-700" : ""}
+                      >
+                        ✕ Declined
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <DialogFooter className="pt-6 mt-6 border-t">
+                <Button variant="outline" onClick={() => setShowAddEventDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Convert appointment to calendar event
+                    const endTime = new Date(appointmentDateTime.getTime() + appointmentDuration * 60000);
+                    
+                    createCalendarEvent({
+                      summary: `[Appointment] ${appointmentTitle} (${appointmentStatus})`,
+                      location: appointmentLocation,
+                      description: `Participants: ${appointmentParticipants.join(', ')}
+Status: ${appointmentStatus}`,
+                      start: { dateTime: appointmentDateTime.toISOString() },
+                      end: { dateTime: endTime.toISOString() }
+                    });
+                    setShowAddEventDialog(false);
+                  }}
+                >
+                  Create Appointment
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
       
       {/* Edit Event Dialog */}
       <Dialog open={showEditEventDialog} onOpenChange={setShowEditEventDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Event</DialogTitle>
             <DialogDescription>
