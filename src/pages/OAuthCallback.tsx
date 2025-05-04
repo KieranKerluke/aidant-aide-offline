@@ -1,162 +1,113 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Layout } from "@/components/layout";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
-import { GOOGLE_REDIRECT_URI } from "@/utils/google-auth";
+import { secureFetch } from "@/lib/csrf";
+import { validateData } from "@/lib/validation";
+import { secureStore, secureRetrieve } from "@/lib/secure-storage";
+import { z } from "zod";
+import { secureLogger } from "@/lib/secure-logger";
 
-// Define the possible states for the OAuth callback process
-type CallbackState = "loading" | "success" | "error";
+// Token response schema validation
+const tokenResponseSchema = z.object({
+  access_token: z.string(),
+  refresh_token: z.string().optional(),
+  expires_in: z.number().optional(),
+  token_type: z.string().optional(),
+  scope: z.string().optional(),
+});
 
-export default function OAuthCallback() {
-  const [state, setState] = useState<CallbackState>("loading");
-  const [errorMessage, setErrorMessage] = useState<string>("");
+export function OAuthCallback() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const exchangeCodeForTokens = async () => {
+    try {
+      // Get authorization code from URL
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      
+      if (!code) {
+        throw new Error('Authorization code not found');
+      }
+
+      // Validate code format
+      if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
+        throw new Error('Invalid authorization code format');
+      }
+
+      // Exchange code for tokens using secure fetch
+      const response = await secureFetch(`/.netlify/functions/google-oauth?code=${encodeURIComponent(code)}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to exchange authorization code for tokens');
+      }
+
+      const data = await response.json();
+      
+      // Validate response data
+      const validatedData = validateData(tokenResponseSchema, data);
+      
+      // Store tokens securely using our enhanced secure storage
+      const tokenData = {
+        access_token: validatedData.access_token,
+        refresh_token: validatedData.refresh_token,
+        expires_at: validatedData.expires_in 
+          ? new Date(Date.now() + validatedData.expires_in * 1000).toISOString()
+          : null
+      };
+
+      await secureStore(tokenData);
+      
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Navigate to calendar page
+      navigate('/calendar');
+    } catch (error) {
+      secureLogger.error('OAuth callback error:', error);
+      setErrorMessage('Failed to complete authentication. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const handleOAuthCallback = async () => {
-      try {
-        // Get the authorization code from the URL
-        const urlParams = new URLSearchParams(location.search);
-        const code = urlParams.get("code");
-        const error = urlParams.get("error");
+    exchangeCodeForTokens();
+  }, []);
 
-        // Handle error from OAuth provider
-        if (error) {
-          console.error("OAuth error:", error);
-          setState("error");
-          setErrorMessage(`Authentication failed: ${error}`);
-          toast({
-            title: "Authentication Error",
-            description: `Google authentication failed: ${error}`,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Check if code exists
-        if (!code) {
-          console.error("No authorization code found in the URL");
-          setState("error");
-          setErrorMessage("No authorization code received from Google");
-          toast({
-            title: "Authentication Error",
-            description: "No authorization code received from Google",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        console.log("Authorization code received:", code);
-
-        // The Netlify function will handle the code exchange automatically via the redirect rule
-        // We just need to store the tokens that are returned
-        try {
-          // The tokens should be in the response from our Netlify function
-          const response = await fetch(`/.netlify/functions/google-oauth?code=${encodeURIComponent(code)}`);
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || `API error: ${response.status}`);
-          }
-
-          const data = await response.json();
-          console.log('RAW RESPONSE FROM OAUTH FUNCTION:', data);
-          
-          // Make sure we have the right token structure
-          // The server response should include tokens object OR be the tokens themselves
-          const tokensObject = data.tokens || data;
-          
-          // Add timestamp and debug info, then store tokens in localStorage
-          const tokenData = {
-            ...tokensObject,
-            timestamp: new Date().getTime()
-          };
-          
-          console.log('Storing token data in localStorage:', tokenData);
-          console.log('access_token available:', !!tokenData.access_token);
-          
-          localStorage.setItem('authTokens', JSON.stringify(tokenData));
-          
-          // Update state to success
-          setState("success");
-          toast({
-            title: "Authentication Successful",
-            description: "You have successfully authenticated with Google",
-          });
-
-          // Redirect after a short delay
-          setTimeout(() => {
-            navigate("/calendar"); // Redirect to calendar page or another appropriate page
-          }, 2000);
-        } catch (error) {
-          console.error("Error exchanging code for tokens:", error);
-          setState("error");
-          setErrorMessage(error instanceof Error ? error.message : "Failed to exchange authorization code for tokens");
-          toast({
-            title: "Authentication Error",
-            description: error instanceof Error ? error.message : "Failed to exchange authorization code for tokens",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error processing OAuth callback:", error);
-        setState("error");
-        setErrorMessage(error instanceof Error ? error.message : "Unknown error occurred");
-        toast({
-          title: "Authentication Error",
-          description: "Failed to process authentication response",
-          variant: "destructive",
-        });
-      }
-    };
-
-    handleOAuthCallback();
-  }, [location.search, navigate]);
-
-  return (
-    <Layout title="Google Authentication">
-      <div className="flex justify-center items-center h-[calc(100vh-200px)]">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>
-              {state === "loading" && "Processing Authentication"}
-              {state === "success" && "Authentication Successful"}
-              {state === "error" && "Authentication Failed"}
-            </CardTitle>
-            <CardDescription>
-              {state === "loading" && "Please wait while we complete the authentication process..."}
-              {state === "success" && "You have successfully authenticated with Google."}
-              {state === "error" && "There was a problem authenticating with Google."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center py-6">
-            {state === "loading" && <Loader2 className="h-16 w-16 animate-spin text-primary" />}
-            {state === "success" && <CheckCircle className="h-16 w-16 text-green-500" />}
-            {state === "error" && <XCircle className="h-16 w-16 text-red-500" />}
-          </CardContent>
-          {state === "error" && (
-            <CardContent>
-              <p className="text-sm text-muted-foreground">{errorMessage}</p>
-            </CardContent>
-          )}
-          <CardFooter className="flex justify-center">
-            {state === "success" && (
-              <Button onClick={() => navigate("/calendar")}>
-                Continue to Calendar
-              </Button>
-            )}
-            {state === "error" && (
-              <Button onClick={() => navigate("/")}>
-                Return to Dashboard
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Completing authentication...</p>
+        </div>
       </div>
-    </Layout>
-  );
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Error</h2>
+          <p className="text-gray-600 mb-4">{errorMessage}</p>
+          <button
+            onClick={() => navigate('/calendar')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Return to Calendar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }

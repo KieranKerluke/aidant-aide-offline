@@ -6,10 +6,11 @@
  * 2. Background notifications
  * 3. Notification click events
  * 4. Periodic sync for updating reminders
+ * 5. Security headers for all responses
  */
 
 // Cache name and assets to cache
-const CACHE_NAME = 'aidant-aide-offline-v1';
+const CACHE_NAME = 'aidant-aide-offline-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -17,6 +18,38 @@ const ASSETS_TO_CACHE = [
   '/favicon.ico',
   // Add other static assets here
 ];
+
+// Security headers to add to all responses
+const SECURITY_HEADERS = new Headers({
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' https://apis.google.com https://www.googleapis.com https://accounts.google.com https://www.gstatic.com 'unsafe-inline'; connect-src 'self' https://oauth2.googleapis.com https://www.googleapis.com https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://accounts.google.com;",
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+});
+
+// Function to add security headers to a response
+function addSecurityHeaders(response) {
+  // Clone the response to modify headers
+  const secureResponse = response.clone();
+  
+  // Create new headers object with both original and security headers
+  const headers = new Headers(secureResponse.headers);
+  
+  // Add each security header
+  for (const [key, value] of SECURITY_HEADERS.entries()) {
+    headers.set(key, value);
+  }
+  
+  // Create a new response with the enhanced headers
+  return new Response(secureResponse.body, {
+    status: secureResponse.status,
+    statusText: secureResponse.statusText,
+    headers: headers
+  });
+}
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -76,25 +109,33 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           // Don't cache non-successful responses or non-GET requests
           if (!response || response.status !== 200 || event.request.method !== 'GET') {
-            return response;
+            // Add security headers even to error responses
+            return addSecurityHeaders(response);
           }
           
           // Clone the response as it can only be consumed once
           const responseToCache = response.clone();
           
-          // Cache the response for future use
+          // Add security headers to the response before caching
+          const secureResponse = addSecurityHeaders(response);
+          const secureResponseToCache = secureResponse.clone();
+          
+          // Cache the secure response for future use
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            cache.put(event.request, secureResponseToCache);
           });
           
-          return response;
+          return secureResponse;
         })
         .catch(() => {
           // If both cache and network fail, return a fallback
           if (event.request.url.indexOf('/api/') !== -1) {
-            // For API requests, return a JSON error
+            // For API requests, return a JSON error with security headers
+            const errorHeaders = new Headers(SECURITY_HEADERS);
+            errorHeaders.set('Content-Type', 'application/json');
+            
             return new Response(JSON.stringify({ error: 'Network error' }), {
-              headers: { 'Content-Type': 'application/json' },
+              headers: errorHeaders,
               status: 503
             });
           }
@@ -104,8 +145,14 @@ self.addEventListener('fetch', (event) => {
             return caches.match('/');
           }
           
-          // Otherwise, just return an error response
-          return new Response('Network error', { status: 503 });
+          // Otherwise, just return an error response with security headers
+          const errorHeaders = new Headers(SECURITY_HEADERS);
+          errorHeaders.set('Content-Type', 'text/plain');
+          
+          return new Response('Network error', { 
+            headers: errorHeaders,
+            status: 503 
+          });
         });
     })
   );
@@ -237,7 +284,19 @@ self.addEventListener('push', (event) => {
   }
 });
 
-// Log any errors
+// Log any errors - sanitize sensitive information
 self.addEventListener('error', (event) => {
-  console.error('[Service Worker] Error:', event.message, event.filename, event.lineno);
+  // Sanitize error information to prevent sensitive data leakage
+  const sanitizedMessage = event.message ? event.message.replace(/token|key|secret|password|auth/gi, '***REDACTED***') : 'Unknown error';
+  console.error('[Service Worker] Error:', sanitizedMessage, event.filename, event.lineno);
+});
+
+// Security event listener for reporting violations
+self.addEventListener('securitypolicyviolation', (event) => {
+  // Log CSP violations without exposing sensitive data
+  console.error('[Service Worker] CSP Violation:', {
+    directive: event.violatedDirective,
+    blockedURI: event.blockedURI,
+    documentURI: event.documentURI
+  });
 });

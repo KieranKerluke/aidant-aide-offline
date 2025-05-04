@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Layout } from "@/components/layout";
@@ -17,7 +16,7 @@ import {
   TabsList, 
   TabsTrigger 
 } from "@/components/ui/tabs";
-import { Edit, FileText, ArrowLeft } from "lucide-react";
+import { Edit, FileText, ArrowLeft, Download } from "lucide-react";
 import { format } from "date-fns";
 import { 
   getSession, 
@@ -32,6 +31,8 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { MedicalReportForm } from "@/components/medical-report-form";
 import { FamilyReportForm } from "@/components/family-report-form";
+import { saveAs } from "file-saver";
+import { Document as DocxDocument, Packer, Paragraph, HeadingLevel } from "docx";
 
 export default function SessionReports() {
   const { id } = useParams();
@@ -110,6 +111,67 @@ export default function SessionReports() {
     }
     return `${hours} hour${hours > 1 ? 's' : ''} ${remainingMinutes} minutes`;
   };
+
+  // ----- Export to Word helpers -----
+  const generateMedicalReportDoc = (report: MedicalReport) => {
+    return new DocxDocument({
+      sections: [
+        {
+          children: [
+            new Paragraph({ text: "Medical Report", heading: HeadingLevel.TITLE }),
+            new Paragraph({ text: `Objectives: ${report.objectives}` }),
+            new Paragraph({ text: `Example: ${report.example}` }),
+            new Paragraph({ text: `Topics: ${report.topics}` }),
+            new Paragraph({ text: `Emotional State (Beginning): ${report.emotionalState.beginning}` }),
+            new Paragraph({ text: `Emotional State (End): ${report.emotionalState.end}` }),
+            new Paragraph({ text: `Expression Ability: ${report.expressionAbility}` }),
+            new Paragraph({ text: `Intervention Reactions: ${report.interventionReactions}` }),
+            new Paragraph({ text: `Observed Progress: ${report.observedProgress}` }),
+            new Paragraph({ text: `Obstacles (Emotional): ${report.obstacles.emotional}` }),
+            new Paragraph({ text: `Obstacles (Family Communication): ${report.obstacles.familyCommunication}` }),
+            new Paragraph({ text: `Obstacles (External Factors): ${report.obstacles.externalFactors}` }),
+            new Paragraph({ text: `Recommendations (Patient): ${report.recommendations.patient}` }),
+            new Paragraph({ text: `Recommendations (Family): ${report.recommendations.family}` }),
+            new Paragraph({ text: `Conclusion: ${report.conclusion}` }),
+          ],
+        },
+      ],
+    });
+  };
+
+  const generateFamilyReportDoc = (report: FamilyReport) => {
+    return new DocxDocument({
+      sections: [
+        {
+          children: [
+            new Paragraph({ text: "Family Report", heading: HeadingLevel.TITLE }),
+            new Paragraph({ text: `Objective: ${report.objective}` }),
+            new Paragraph({ text: `Topics With Patient: ${report.topicsWithPatient}` }),
+            new Paragraph({ text: `Topics With Family: ${report.topicsWithFamily}` }),
+            new Paragraph({ text: `General Observations: ${report.generalObservations}` }),
+            new Paragraph({ text: `Conclusion: ${report.conclusion}` }),
+          ],
+        },
+      ],
+    });
+  };
+
+  const handleExportMedicalReport = async () => {
+    if (!medicalReport) return;
+    const doc = generateMedicalReportDoc(medicalReport);
+    const blob = await Packer.toBlob(doc);
+    const filename = `Medical_Report_${format(new Date(session?.date ?? Date.now()), "yyyy-MM-dd")}.docx`;
+    saveAs(blob, filename);
+  };
+
+  const handleExportFamilyReport = async () => {
+    if (!familyReport) return;
+    const doc = generateFamilyReportDoc(familyReport);
+    const blob = await Packer.toBlob(doc);
+    const filename = `Family_Report_${format(new Date(session?.date ?? Date.now()), "yyyy-MM-dd")}.docx`;
+    saveAs(blob, filename);
+  };
+  // ----- End helpers -----
 
   if (isLoading) {
     return (
@@ -194,7 +256,7 @@ export default function SessionReports() {
                     <p>No medical report has been created yet for this session.</p>
                   )}
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex gap-2">
                   <Button 
                     onClick={handleCreateMedicalReport}
                     variant={medicalReport ? "outline" : "default"}
@@ -202,6 +264,12 @@ export default function SessionReports() {
                     <FileText className="mr-2 h-4 w-4" />
                     {medicalReport ? "View/Edit Report" : "Create Report"}
                   </Button>
+                  {medicalReport && (
+                    <Button variant="secondary" onClick={handleExportMedicalReport}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export Word
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
               
@@ -219,7 +287,7 @@ export default function SessionReports() {
                     <p>No family report has been created yet for this session.</p>
                   )}
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex gap-2">
                   <Button 
                     onClick={handleCreateFamilyReport}
                     variant={familyReport ? "outline" : "default"}
@@ -227,6 +295,12 @@ export default function SessionReports() {
                     <FileText className="mr-2 h-4 w-4" />
                     {familyReport ? "View/Edit Report" : "Create Report"}
                   </Button>
+                  {familyReport && (
+                    <Button variant="secondary" onClick={handleExportFamilyReport}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export Word
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             </div>
