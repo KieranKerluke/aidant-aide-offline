@@ -29,7 +29,7 @@ import {
   FamilyReportType2,
   getMedicalReportBySession,
   getFamilyReportBySession
-} from "@/lib/db";
+} from "@/lib/drive";
 import { toast } from "@/components/ui/use-toast";
 import { MedicalReportType1Form } from "@/components/medical-report-type1-form";
 import { MedicalReportType2Form } from "@/components/medical-report-type2-form";
@@ -76,7 +76,7 @@ export default function SessionReports() {
         
         const medicalReport = await getMedicalReportBySession(Number(id));
         if (medicalReport) {
-          if ('patientSituation' in medicalReport) {
+          if (medicalReport.type === 'type1') {
             setMedicalReportType1(medicalReport as MedicalReportType1);
           } else {
             setMedicalReportType2(medicalReport as MedicalReportType2);
@@ -85,7 +85,7 @@ export default function SessionReports() {
         
         const familyReport = await getFamilyReportBySession(Number(id));
         if (familyReport) {
-          if ('patientSituation' in familyReport) {
+          if (familyReport.type === 'type1') {
             setFamilyReportType1(familyReport as FamilyReportType1);
           } else {
             setFamilyReportType2(familyReport as FamilyReportType2);
@@ -172,7 +172,6 @@ export default function SessionReports() {
             new Paragraph({ text: `Durée de séance: ${report.duration}` }),
             new Paragraph({ text: `Lieu de la séance: ${report.location}` }),
             new Paragraph({ text: `Nom du participant: ${report.participantName}` }),
-            new Paragraph({ text: `Situation du patient: ${report.patientSituation}` }),
             new Paragraph({ text: `Situation familiale: ${report.familySituation}` }),
             new Paragraph({ text: `Observations: ${report.observations}` }),
             new Paragraph({ text: `Conclusion et recommandations: ${report.conclusion}` }),
@@ -386,30 +385,26 @@ export default function SessionReports() {
               activeReportType === "type1" ? (
                 <MedicalReportType1Form 
                   sessionId={Number(id)} 
-                  report={medicalReportType1} 
-                  onSaved={(savedReport) => {
-                    setMedicalReportType1(savedReport);
+                  initialData={medicalReportType1}
+                  onSuccess={() => {
                     setActiveTab("overview");
                     toast({
                       title: "Success",
                       description: "Medical report type 1 saved successfully"
                     });
                   }}
-                  onCancel={() => setActiveTab("overview")}
                 />
               ) : (
                 <MedicalReportType2Form 
                   sessionId={Number(id)} 
-                  report={medicalReportType2} 
-                  onSaved={(savedReport) => {
-                    setMedicalReportType2(savedReport);
+                  initialData={medicalReportType2}
+                  onSuccess={() => {
                     setActiveTab("overview");
                     toast({
                       title: "Success",
                       description: "Medical report type 2 saved successfully"
                     });
                   }}
-                  onCancel={() => setActiveTab("overview")}
                 />
               )
             )}
@@ -420,30 +415,26 @@ export default function SessionReports() {
               activeReportType === "type1" ? (
                 <FamilyReportType1Form 
                   sessionId={Number(id)} 
-                  report={familyReportType1} 
-                  onSaved={(savedReport) => {
-                    setFamilyReportType1(savedReport);
+                  initialData={familyReportType1}
+                  onSuccess={() => {
                     setActiveTab("overview");
                     toast({
                       title: "Success",
                       description: "Family report type 1 saved successfully"
                     });
                   }}
-                  onCancel={() => setActiveTab("overview")}
                 />
               ) : (
                 <FamilyReportType2Form 
                   sessionId={Number(id)} 
-                  report={familyReportType2} 
-                  onSaved={(savedReport) => {
-                    setFamilyReportType2(savedReport);
+                  initialData={familyReportType2}
+                  onSuccess={() => {
                     setActiveTab("overview");
                     toast({
                       title: "Success",
                       description: "Family report type 2 saved successfully"
                     });
                   }}
-                  onCancel={() => setActiveTab("overview")}
                 />
               )
             )}

@@ -24,34 +24,93 @@ const COLLECTIONS = {
 };
 
 // Type definitions for collections
-interface Patient {
+export interface Patient {
   id: number;
   name: string;
   // Add other patient fields
 }
 
-interface Session {
+export interface Session {
   id: number;
   patientId: number;
   date: string;
   // Add other session fields
 }
 
-interface MedicalReport {
+export interface MedicalReportType1 {
   id: number;
   sessionId: number;
-  type: 'type1' | 'type2';
-  // Add other medical report fields
+  type: 'type1';
+  date: string;
+  duration: string;
+  location: string;
+  participantName: string;
+  patientSituation: string;
+  familySituation: string;
+  observations: string;
+  conclusion: string;
+  signature: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface FamilyReport {
+export interface MedicalReportType2 {
   id: number;
   sessionId: number;
-  type: 'type1' | 'type2';
-  // Add other family report fields
+  type: 'type2';
+  date: string;
+  duration: string;
+  location: string;
+  participantName: string;
+  sessionObjective: string;
+  topics: {
+    withPatient: string;
+    withFamily: string;
+  };
+  generalObservations: string;
+  conclusion: string;
+  signature: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface Task {
+export interface FamilyReportType1 {
+  id: number;
+  sessionId: number;
+  type: 'type1';
+  date: string;
+  duration: string;
+  location: string;
+  participantName: string;
+  familySituation: string;
+  observations: string;
+  conclusion: string;
+  signature: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FamilyReportType2 {
+  id: number;
+  sessionId: number;
+  type: 'type2';
+  date: string;
+  duration: string;
+  location: string;
+  participantName: string;
+  sessionObjective: string;
+  topics: {
+    withPatient: string;
+    withFamily: string;
+  };
+  generalObservations: string;
+  conclusion: string;
+  signature: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Task {
   id: number;
   title: string;
   completed: boolean;
@@ -133,16 +192,44 @@ async function readCollection<T>(fileId: string): Promise<T[]> {
       fileId,
       alt: 'media',
     });
-    return response.data as T[];
+
+    // Handle empty or invalid response
+    if (!response.data) {
+      return [];
+    }
+
+    // Parse the response data
+    let data: T[];
+    try {
+      data = typeof response.data === 'string' 
+        ? JSON.parse(response.data) 
+        : response.data as T[];
+    } catch (parseError) {
+      console.error('Error parsing collection data:', parseError);
+      return [];
+    }
+
+    // Ensure we have an array
+    if (!Array.isArray(data)) {
+      console.warn('Collection data is not an array, returning empty array');
+      return [];
+    }
+
+    return data;
   } catch (error) {
     console.error('Error reading collection:', error);
-    throw error;
+    // Return empty array instead of throwing for better error handling
+    return [];
   }
 }
 
 // Write to a collection
 async function writeCollection<T>(fileId: string, data: T[]): Promise<void> {
   try {
+    if (!Array.isArray(data)) {
+      throw new Error('Data must be an array');
+    }
+
     await drive.files.update({
       fileId,
       media: {
@@ -159,12 +246,33 @@ async function writeCollection<T>(fileId: string, data: T[]): Promise<void> {
 // Initialize the database
 export async function initializeDB() {
   try {
+    // Check if we're authenticated
+    if (!oauth2Client.credentials.access_token) {
+      throw new Error('Not authenticated with Google Drive');
+    }
+
     const folderId = await getOrCreateDBFolder();
     const fileIds: Record<string, string> = {};
 
     // Create all collection files
     for (const [collection, fileName] of Object.entries(COLLECTIONS)) {
-      fileIds[collection] = await getOrCreateCollectionFile(folderId, fileName);
+      try {
+        fileIds[collection] = await getOrCreateCollectionFile(folderId, fileName);
+      } catch (error) {
+        console.error(`Error initializing collection ${collection}:`, error);
+        // Continue with other collections even if one fails
+        fileIds[collection] = '';
+      }
+    }
+
+    // Verify all collections were created
+    const failedCollections = Object.entries(fileIds)
+      .filter(([_, id]) => !id)
+      .map(([collection]) => collection);
+
+    if (failedCollections.length > 0) {
+      console.error('Failed to initialize collections:', failedCollections);
+      throw new Error(`Failed to initialize collections: ${failedCollections.join(', ')}`);
     }
 
     return fileIds;
@@ -245,71 +353,117 @@ export async function deleteSession(id: number): Promise<void> {
 }
 
 // CRUD operations for medical reports
-export async function createMedicalReport(report: Omit<MedicalReport, 'id'>): Promise<MedicalReport> {
+export async function createMedicalReport(report: Omit<MedicalReportType1 | MedicalReportType2, 'id' | 'createdAt' | 'updatedAt'>): Promise<MedicalReportType1 | MedicalReportType2> {
   const fileIds = await initializeDB();
-  const reports = await readCollection<MedicalReport>(fileIds.medicalReports);
-  const newReport = { ...report, id: reports.length + 1 };
+  const reports = await readCollection<MedicalReportType1 | MedicalReportType2>(fileIds.medicalReports);
+  
+  // Validate required fields based on report type
+  if (report.type === 'type1') {
+    const type1Report = report as Omit<MedicalReportType1, 'id' | 'createdAt' | 'updatedAt'>;
+    if (!type1Report.patientSituation || !type1Report.familySituation || !type1Report.observations) {
+      throw new Error('Missing required fields for MedicalReportType1');
+    }
+  } else if (report.type === 'type2') {
+    const type2Report = report as Omit<MedicalReportType2, 'id' | 'createdAt' | 'updatedAt'>;
+    if (!type2Report.sessionObjective || !type2Report.topics || !type2Report.generalObservations) {
+      throw new Error('Missing required fields for MedicalReportType2');
+    }
+  }
+  
+  const newReport = {
+    ...report,
+    id: reports.length + 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  } as MedicalReportType1 | MedicalReportType2;
+
   reports.push(newReport);
   await writeCollection(fileIds.medicalReports, reports);
   return newReport;
 }
 
-export async function getMedicalReport(id: number): Promise<MedicalReport | undefined> {
+export async function getMedicalReport(id: number): Promise<MedicalReportType1 | MedicalReportType2 | undefined> {
   const fileIds = await initializeDB();
-  const reports = await readCollection<MedicalReport>(fileIds.medicalReports);
+  const reports = await readCollection<MedicalReportType1 | MedicalReportType2>(fileIds.medicalReports);
   return reports.find(r => r.id === id);
 }
 
-export async function updateMedicalReport(report: MedicalReport): Promise<MedicalReport> {
+export async function updateMedicalReport(report: MedicalReportType1 | MedicalReportType2): Promise<MedicalReportType1 | MedicalReportType2> {
   const fileIds = await initializeDB();
-  const reports = await readCollection<MedicalReport>(fileIds.medicalReports);
+  const reports = await readCollection<MedicalReportType1 | MedicalReportType2>(fileIds.medicalReports);
   const index = reports.findIndex(r => r.id === report.id);
   if (index !== -1) {
-    reports[index] = report;
+    reports[index] = {
+      ...report,
+      updatedAt: new Date().toISOString()
+    };
     await writeCollection(fileIds.medicalReports, reports);
-    return report;
+    return reports[index];
   }
   throw new Error('Medical report not found');
 }
 
 export async function deleteMedicalReport(id: number): Promise<void> {
   const fileIds = await initializeDB();
-  const reports = await readCollection<MedicalReport>(fileIds.medicalReports);
+  const reports = await readCollection<MedicalReportType1 | MedicalReportType2>(fileIds.medicalReports);
   const filteredReports = reports.filter(r => r.id !== id);
   await writeCollection(fileIds.medicalReports, filteredReports);
 }
 
 // CRUD operations for family reports
-export async function createFamilyReport(report: Omit<FamilyReport, 'id'>): Promise<FamilyReport> {
+export async function createFamilyReport(report: Omit<FamilyReportType1 | FamilyReportType2, 'id' | 'createdAt' | 'updatedAt'>): Promise<FamilyReportType1 | FamilyReportType2> {
   const fileIds = await initializeDB();
-  const reports = await readCollection<FamilyReport>(fileIds.familyReports);
-  const newReport = { ...report, id: reports.length + 1 };
+  const reports = await readCollection<FamilyReportType1 | FamilyReportType2>(fileIds.familyReports);
+  
+  // Validate required fields based on report type
+  if (report.type === 'type1') {
+    const type1Report = report as Omit<FamilyReportType1, 'id' | 'createdAt' | 'updatedAt'>;
+    if (!type1Report.familySituation || !type1Report.observations) {
+      throw new Error('Missing required fields for FamilyReportType1');
+    }
+  } else if (report.type === 'type2') {
+    const type2Report = report as Omit<FamilyReportType2, 'id' | 'createdAt' | 'updatedAt'>;
+    if (!type2Report.sessionObjective || !type2Report.topics || !type2Report.generalObservations) {
+      throw new Error('Missing required fields for FamilyReportType2');
+    }
+  }
+  
+  const newReport = {
+    ...report,
+    id: reports.length + 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  } as FamilyReportType1 | FamilyReportType2;
+
   reports.push(newReport);
   await writeCollection(fileIds.familyReports, reports);
   return newReport;
 }
 
-export async function getFamilyReport(id: number): Promise<FamilyReport | undefined> {
+export async function getFamilyReport(id: number): Promise<FamilyReportType1 | FamilyReportType2 | undefined> {
   const fileIds = await initializeDB();
-  const reports = await readCollection<FamilyReport>(fileIds.familyReports);
+  const reports = await readCollection<FamilyReportType1 | FamilyReportType2>(fileIds.familyReports);
   return reports.find(r => r.id === id);
 }
 
-export async function updateFamilyReport(report: FamilyReport): Promise<FamilyReport> {
+export async function updateFamilyReport(report: FamilyReportType1 | FamilyReportType2): Promise<FamilyReportType1 | FamilyReportType2> {
   const fileIds = await initializeDB();
-  const reports = await readCollection<FamilyReport>(fileIds.familyReports);
+  const reports = await readCollection<FamilyReportType1 | FamilyReportType2>(fileIds.familyReports);
   const index = reports.findIndex(r => r.id === report.id);
   if (index !== -1) {
-    reports[index] = report;
+    reports[index] = {
+      ...report,
+      updatedAt: new Date().toISOString()
+    };
     await writeCollection(fileIds.familyReports, reports);
-    return report;
+    return reports[index];
   }
   throw new Error('Family report not found');
 }
 
 export async function deleteFamilyReport(id: number): Promise<void> {
   const fileIds = await initializeDB();
-  const reports = await readCollection<FamilyReport>(fileIds.familyReports);
+  const reports = await readCollection<FamilyReportType1 | FamilyReportType2>(fileIds.familyReports);
   const filteredReports = reports.filter(r => r.id !== id);
   await writeCollection(fileIds.familyReports, filteredReports);
 }
@@ -347,4 +501,16 @@ export async function deleteTask(id: number): Promise<void> {
   const tasks = await readCollection<Task>(fileIds.tasks);
   const filteredTasks = tasks.filter(t => t.id !== id);
   await writeCollection(fileIds.tasks, filteredTasks);
+}
+
+export async function getMedicalReportBySession(sessionId: number): Promise<MedicalReportType1 | MedicalReportType2 | undefined> {
+  const fileIds = await initializeDB();
+  const reports = await readCollection<MedicalReportType1 | MedicalReportType2>(fileIds.medicalReports);
+  return reports.find(r => r.sessionId === sessionId);
+}
+
+export async function getFamilyReportBySession(sessionId: number): Promise<FamilyReportType1 | FamilyReportType2 | undefined> {
+  const fileIds = await initializeDB();
+  const reports = await readCollection<FamilyReportType1 | FamilyReportType2>(fileIds.familyReports);
+  return reports.find(r => r.sessionId === sessionId);
 } 

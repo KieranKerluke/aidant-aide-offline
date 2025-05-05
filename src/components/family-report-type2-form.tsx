@@ -10,105 +10,97 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { FamilyReportType2, createFamilyReport, updateFamilyReport } from "@/lib/db";
+import { FamilyReportType2, createFamilyReport, updateFamilyReport } from "@/lib/drive";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Input } from '@/components/ui/input';
 
 interface FamilyReportType2FormProps {
   sessionId: number;
-  report: FamilyReportType2 | null;
-  onSaved: (report: FamilyReportType2) => void;
-  onCancel: () => void;
+  onSuccess: () => void;
+  initialData?: FamilyReportType2;
 }
 
 const formSchema = z.object({
-  date: z.string().min(1, "Date is required"),
-  duration: z.string().min(1, "Duration is required"),
-  location: z.string().min(1, "Location is required"),
-  participantName: z.string().min(1, "Participant name is required"),
-  sessionObjective: z.string().min(1, "Session objective is required"),
-  topicsWithPatient: z.string().min(1, "Topics with patient are required"),
-  topicsWithFamily: z.string().min(1, "Topics with family are required"),
-  generalObservations: z.string().min(1, "General observations are required"),
-  conclusion: z.string().min(1, "Conclusion is required"),
-  signature: z.string().min(1, "Signature is required"),
+  sessionId: z.number(),
+  date: z.string(),
+  duration: z.string(),
+  location: z.string(),
+  participantName: z.string(),
+  sessionObjective: z.string(),
+  topics: z.object({
+    withPatient: z.string(),
+    withFamily: z.string(),
+  }),
+  generalObservations: z.string(),
+  conclusion: z.string(),
+  signature: z.string(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormData = Omit<FamilyReportType2, 'id' | 'createdAt' | 'updatedAt' | 'type'>;
 
-export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: FamilyReportType2FormProps) {
+export function FamilyReportType2Form({ sessionId, onSuccess, initialData }: FamilyReportType2FormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<FormValues>({
+  const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      date: report?.date || "",
-      duration: report?.duration || "",
-      location: report?.location || "",
-      participantName: report?.participantName || "",
-      sessionObjective: report?.sessionObjective || "",
-      topicsWithPatient: report?.topics.withPatient || "",
-      topicsWithFamily: report?.topics.withFamily || "",
-      generalObservations: report?.generalObservations || "",
-      conclusion: report?.conclusion || "",
-      signature: report?.signature || "Achraf Chefchaouni\nPair aidant en santé mentale",
-    }
+    defaultValues: initialData || {
+      sessionId,
+      date: new Date().toISOString().split('T')[0],
+      duration: '',
+      location: '',
+      participantName: '',
+      sessionObjective: '',
+      topics: {
+        withPatient: '',
+        withFamily: '',
+      },
+      generalObservations: '',
+      conclusion: '',
+      signature: '',
+    },
   });
 
   useEffect(() => {
-    if (report) {
+    if (initialData) {
       form.reset({
-        date: report.date,
-        duration: report.duration,
-        location: report.location,
-        participantName: report.participantName,
-        sessionObjective: report.sessionObjective,
-        topicsWithPatient: report.topics.withPatient,
-        topicsWithFamily: report.topics.withFamily,
-        generalObservations: report.generalObservations,
-        conclusion: report.conclusion,
-        signature: report.signature,
+        sessionId,
+        date: initialData.date,
+        duration: initialData.duration,
+        location: initialData.location,
+        participantName: initialData.participantName,
+        sessionObjective: initialData.sessionObjective,
+        topics: {
+          withPatient: initialData.topics.withPatient,
+          withFamily: initialData.topics.withFamily,
+        },
+        generalObservations: initialData.generalObservations,
+        conclusion: initialData.conclusion,
+        signature: initialData.signature,
       });
     }
-  }, [report, form]);
+  }, [initialData, form]);
 
-  const onSubmit = async (data: FormValues) => {
+  const onSubmit = async (data: FormData) => {
     try {
       setIsSubmitting(true);
       
-      const reportData = {
-        sessionId,
-        date: data.date,
-        duration: data.duration,
-        location: data.location,
-        participantName: data.participantName,
-        sessionObjective: data.sessionObjective,
-        topics: {
-          withPatient: data.topicsWithPatient,
-          withFamily: data.topicsWithFamily,
-        },
-        generalObservations: data.generalObservations,
-        conclusion: data.conclusion,
-        signature: data.signature,
-      };
-      
-      let savedReport;
-      
-      if (report?.id) {
-        savedReport = await updateFamilyReport({
-          ...reportData,
-          id: report.id,
-          createdAt: report.createdAt,
-          updatedAt: new Date().toISOString()
+      if (initialData) {
+        await updateFamilyReport({
+          ...initialData,
+          ...data,
+          type: 'type2' as const,
         });
       } else {
-        savedReport = await createFamilyReport(reportData);
+        await createFamilyReport({
+          ...data,
+          type: 'type2' as const,
+        });
       }
-      
-      onSaved(savedReport as FamilyReportType2);
+      onSuccess();
     } catch (error) {
-      console.error("Error saving family report type 2:", error);
+      console.error("Error saving family report:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -117,10 +109,10 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
   return (
     <Card>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <CardContent className="space-y-6 pt-6">
             <h2 className="text-xl font-semibold mb-4">
-              {report ? "Edit Family Report Type 2" : "Create Family Report Type 2"}
+              {initialData ? "Edit Family Report Type 2" : "Create Family Report Type 2"}
             </h2>
             
             <div className="space-y-4">
@@ -131,11 +123,7 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
                   <FormItem>
                     <FormLabel>Date de la séance</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Enter the session date"
-                        className="min-h-[50px]"
-                        {...field}
-                      />
+                      <Input {...field} type="date" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -149,11 +137,7 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
                   <FormItem>
                     <FormLabel>Durée de séance</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Enter the session duration"
-                        className="min-h-[50px]"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -167,11 +151,7 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
                   <FormItem>
                     <FormLabel>Lieu de la séance</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Enter the session location"
-                        className="min-h-[50px]"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -185,11 +165,7 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
                   <FormItem>
                     <FormLabel>Nom du participant</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Enter the participant's name"
-                        className="min-h-[50px]"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -203,11 +179,7 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
                   <FormItem>
                     <FormLabel>Objectif de la séance</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Enter the session objective"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -216,16 +188,12 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
               
               <FormField
                 control={form.control}
-                name="topicsWithPatient"
+                name="topics.withPatient"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Thèmes abordés avec le patient</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="List topics discussed with the patient"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -234,16 +202,12 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
               
               <FormField
                 control={form.control}
-                name="topicsWithFamily"
+                name="topics.withFamily"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Thèmes abordés avec la famille</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="List topics discussed with the family"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -257,11 +221,7 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
                   <FormItem>
                     <FormLabel>Observations générales</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Enter your general observations"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -275,11 +235,7 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
                   <FormItem>
                     <FormLabel>Conclusion</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Write your conclusion"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -293,11 +249,7 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
                   <FormItem>
                     <FormLabel>Signature</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Enter your signature"
-                        className="min-h-[50px]"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -306,13 +258,6 @@ export function FamilyReportType2Form({ sessionId, report, onSaved, onCancel }: 
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onCancel}
-            >
-              Cancel
-            </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Saving..." : "Save Report"}
             </Button>

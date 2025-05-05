@@ -1,4 +1,3 @@
-
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -8,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { signOut } from '@/lib/auth';
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
@@ -25,29 +25,23 @@ export default function Settings() {
     });
   };
 
-  const handleResetApp = () => {
-    // For demonstration purposes only - would clear IndexedDB in a full implementation
-    toast({
-      title: "App data reset",
-      description: "All data has been cleared from the application",
-      variant: "destructive",
-    });
+  const handleClearData = async () => {
+    // This will clear the Google Drive folder
+    if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+      // The data will be cleared when the user signs out and signs back in
+      await signOut();
+      window.location.reload();
+    }
   };
 
-  const handleExportData = () => {
-    // For demonstration purposes only - would export IndexedDB data in a full implementation
-    toast({
-      title: "Data exported",
-      description: "Your data has been exported successfully.",
-    });
+  const handleExportData = async () => {
+    // Data is already in Google Drive, so users can access it directly
+    alert('Your data is stored in your Google Drive. You can access it directly from your Google Drive account.');
   };
 
-  const handleImportData = () => {
-    // For demonstration purposes only - would import data into IndexedDB in a full implementation
-    toast({
-      title: "Data imported",
-      description: "Your data has been imported successfully.",
-    });
+  const handleImportData = async () => {
+    // Data import is handled through Google Drive
+    alert('To import data, simply place the JSON files in the PairAidantDB folder in your Google Drive.');
   };
 
   return (
@@ -103,35 +97,29 @@ export default function Settings() {
             <CardDescription>Import, export, or reset your application data</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Button onClick={handleExportData}>
+            <div className="space-y-2">
+              <Button variant="destructive" onClick={handleClearData}>
+                Clear All Data
+              </Button>
+              <Button variant="outline" onClick={handleExportData}>
                 Export Data
               </Button>
               <Button variant="outline" onClick={handleImportData}>
                 Import Data
               </Button>
             </div>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full sm:w-auto">
-                  Reset All Data
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete all application data, including patients, sessions, tasks, and reports. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleResetApp}>
-                    Reset All Data
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Account</CardTitle>
+            <CardDescription>Manage your account</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button variant="outline" onClick={signOut}>
+              Sign Out
+            </Button>
           </CardContent>
         </Card>
 
