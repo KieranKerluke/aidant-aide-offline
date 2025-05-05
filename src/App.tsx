@@ -5,9 +5,37 @@ import { isAuthenticated } from '@/lib/auth';
 import Patients from '@/pages/Patients';
 import SessionReports from '@/pages/SessionReports';
 import Tasks from '@/pages/Tasks';
+import { useEffect, useState } from 'react';
 
 function App() {
-  if (!isAuthenticated()) {
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [isAuth, setIsAuth] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const authStatus = isAuthenticated();
+        setIsAuth(authStatus);
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        setIsAuth(false);
+      } finally {
+        setIsAuthChecked(true);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  if (!isAuthChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAuth) {
     return <GoogleAuth />;
   }
 

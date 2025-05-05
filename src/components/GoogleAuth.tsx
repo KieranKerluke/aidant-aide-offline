@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getAuthUrl, handleAuthCallback, isAuthenticated } from '@/lib/auth';
@@ -6,20 +6,37 @@ import { getAuthUrl, handleAuthCallback, isAuthenticated } from '@/lib/auth';
 export function GoogleAuth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Check if we're in the OAuth callback
     const code = searchParams.get('code');
     if (code) {
-      handleAuthCallback(code).then(() => {
-        navigate('/');
-      });
+      setIsLoading(true);
+      handleAuthCallback(code)
+        .then(() => {
+          navigate('/');
+        })
+        .catch((error) => {
+          console.error('Error during authentication:', error);
+          setIsLoading(false);
+        });
+    } else {
+      setIsLoading(false);
     }
   }, [searchParams, navigate]);
 
   const handleSignIn = () => {
     window.location.href = getAuthUrl();
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   if (isAuthenticated()) {
     return null;
