@@ -19,12 +19,12 @@ interface PairAidantDB extends DBSchema {
   };
   medicalReports: {
     key: number;
-    value: MedicalReport;
+    value: MedicalReportType1 | MedicalReportType2;
     indexes: { 'by-session': number };
   };
   familyReports: {
     key: number;
-    value: FamilyReport;
+    value: FamilyReportType1 | FamilyReportType2;
     indexes: { 'by-session': number };
   };
 }
@@ -61,43 +61,74 @@ export interface Session {
   updatedAt: string; // ISO string
 }
 
-export interface MedicalReport {
+export interface MedicalReportType1 {
   id?: number;
   sessionId: number;
-  objectives: string;
-  example: string;
-  topics: string;
-  emotionalState: {
-    beginning: string;
-    end: string;
-  };
-  expressionAbility: string;
-  interventionReactions: string;
-  observedProgress: string;
-  obstacles: {
-    emotional: string;
-    familyCommunication: string;
-    externalFactors: string;
-  };
-  recommendations: {
-    patient: string;
-    family: string;
-  };
+  date: string;
+  duration: string;
+  location: string;
+  participantName: string;
+  patientSituation: string;
+  familySituation: string;
+  observations: string;
   conclusion: string;
-  createdAt: string; // ISO string
-  updatedAt: string; // ISO string
+  signature: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface FamilyReport {
+export interface MedicalReportType2 {
   id?: number;
   sessionId: number;
-  objective: string;
-  topicsWithPatient: string;
-  topicsWithFamily: string;
+  date: string;
+  duration: string;
+  location: string;
+  participantName: string;
+  sessionObjective: string;
+  topics: {
+    withPatient: string;
+    withFamily: string;
+  };
   generalObservations: string;
   conclusion: string;
-  createdAt: string; // ISO string
-  updatedAt: string; // ISO string
+  signature: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FamilyReportType1 {
+  id?: number;
+  sessionId: number;
+  date: string;
+  duration: string;
+  location: string;
+  participantName: string;
+  patientSituation: string;
+  familySituation: string;
+  observations: string;
+  conclusion: string;
+  signature: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FamilyReportType2 {
+  id?: number;
+  sessionId: number;
+  date: string;
+  duration: string;
+  location: string;
+  participantName: string;
+  sessionObjective: string;
+  topics: {
+    withPatient: string;
+    withFamily: string;
+  };
+  generalObservations: string;
+  conclusion: string;
+  signature: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Task {
@@ -243,32 +274,42 @@ export async function deleteSession(id: number): Promise<void> {
 }
 
 // Medical Report CRUD operations
-export async function createMedicalReport(report: Omit<MedicalReport, 'id' | 'createdAt' | 'updatedAt'>): Promise<MedicalReport> {
+export async function createMedicalReport(report: Omit<MedicalReportType1 | MedicalReportType2, 'id' | 'createdAt' | 'updatedAt'>): Promise<MedicalReportType1 | MedicalReportType2> {
   const db = await getDB();
   const now = new Date().toISOString();
-  const newReport: MedicalReport = {
-    ...report,
-    createdAt: now,
-    updatedAt: now,
-  };
   
-  const id = await db.add('medicalReports', newReport);
-  return { ...newReport, id: id as number };
+  if ('patientSituation' in report) {
+    const newReport: MedicalReportType1 = {
+      ...report as MedicalReportType1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const id = await db.add('medicalReports', newReport);
+    return { ...newReport, id: id as number };
+  } else {
+    const newReport: MedicalReportType2 = {
+      ...report as MedicalReportType2,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const id = await db.add('medicalReports', newReport);
+    return { ...newReport, id: id as number };
+  }
 }
 
-export async function getMedicalReport(id: number): Promise<MedicalReport | undefined> {
+export async function getMedicalReport(id: number): Promise<MedicalReportType1 | MedicalReportType2 | undefined> {
   const db = await getDB();
   return db.get('medicalReports', id);
 }
 
-export async function getMedicalReportBySession(sessionId: number): Promise<MedicalReport | undefined> {
+export async function getMedicalReportBySession(sessionId: number): Promise<MedicalReportType1 | MedicalReportType2 | undefined> {
   const db = await getDB();
   const index = db.transaction('medicalReports').store.index('by-session');
   const reports = await index.getAll(sessionId);
   return reports.length > 0 ? reports[0] : undefined;
 }
 
-export async function updateMedicalReport(report: MedicalReport): Promise<MedicalReport> {
+export async function updateMedicalReport(report: MedicalReportType1 | MedicalReportType2): Promise<MedicalReportType1 | MedicalReportType2> {
   const db = await getDB();
   const updatedReport = {
     ...report,
@@ -284,32 +325,42 @@ export async function deleteMedicalReport(id: number): Promise<void> {
 }
 
 // Family Report CRUD operations
-export async function createFamilyReport(report: Omit<FamilyReport, 'id' | 'createdAt' | 'updatedAt'>): Promise<FamilyReport> {
+export async function createFamilyReport(report: Omit<FamilyReportType1 | FamilyReportType2, 'id' | 'createdAt' | 'updatedAt'>): Promise<FamilyReportType1 | FamilyReportType2> {
   const db = await getDB();
   const now = new Date().toISOString();
-  const newReport: FamilyReport = {
-    ...report,
-    createdAt: now,
-    updatedAt: now,
-  };
   
-  const id = await db.add('familyReports', newReport);
-  return { ...newReport, id: id as number };
+  if ('patientSituation' in report) {
+    const newReport: FamilyReportType1 = {
+      ...report as FamilyReportType1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const id = await db.add('familyReports', newReport);
+    return { ...newReport, id: id as number };
+  } else {
+    const newReport: FamilyReportType2 = {
+      ...report as FamilyReportType2,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const id = await db.add('familyReports', newReport);
+    return { ...newReport, id: id as number };
+  }
 }
 
-export async function getFamilyReport(id: number): Promise<FamilyReport | undefined> {
+export async function getFamilyReport(id: number): Promise<FamilyReportType1 | FamilyReportType2 | undefined> {
   const db = await getDB();
   return db.get('familyReports', id);
 }
 
-export async function getFamilyReportBySession(sessionId: number): Promise<FamilyReport | undefined> {
+export async function getFamilyReportBySession(sessionId: number): Promise<FamilyReportType1 | FamilyReportType2 | undefined> {
   const db = await getDB();
   const index = db.transaction('familyReports').store.index('by-session');
   const reports = await index.getAll(sessionId);
   return reports.length > 0 ? reports[0] : undefined;
 }
 
-export async function updateFamilyReport(report: FamilyReport): Promise<FamilyReport> {
+export async function updateFamilyReport(report: FamilyReportType1 | FamilyReportType2): Promise<FamilyReportType1 | FamilyReportType2> {
   const db = await getDB();
   const updatedReport = {
     ...report,

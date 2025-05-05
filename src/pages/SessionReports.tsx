@@ -23,62 +23,76 @@ import {
   getPatient, 
   Session, 
   Patient, 
-  MedicalReport, 
-  FamilyReport,
+  MedicalReportType1,
+  MedicalReportType2,
+  FamilyReportType1,
+  FamilyReportType2,
   getMedicalReportBySession,
   getFamilyReportBySession
 } from "@/lib/db";
 import { toast } from "@/components/ui/use-toast";
-import { MedicalReportForm } from "@/components/medical-report-form";
-import { FamilyReportForm } from "@/components/family-report-form";
+import { MedicalReportType1Form } from "@/components/medical-report-type1-form";
+import { MedicalReportType2Form } from "@/components/medical-report-type2-form";
+import { FamilyReportType1Form } from "@/components/family-report-type1-form";
+import { FamilyReportType2Form } from "@/components/family-report-type2-form";
 import { saveAs } from "file-saver";
 import { Document as DocxDocument, Packer, Paragraph, HeadingLevel } from "docx";
 
 export default function SessionReports() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [session, setSession] = useState<Session | undefined>();
-  const [patient, setPatient] = useState<Patient | undefined>();
-  const [medicalReport, setMedicalReport] = useState<MedicalReport | null>(null);
-  const [familyReport, setFamilyReport] = useState<FamilyReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [medicalReportType1, setMedicalReportType1] = useState<MedicalReportType1 | null>(null);
+  const [medicalReportType2, setMedicalReportType2] = useState<MedicalReportType2 | null>(null);
+  const [familyReportType1, setFamilyReportType1] = useState<FamilyReportType1 | null>(null);
+  const [familyReportType2, setFamilyReportType2] = useState<FamilyReportType2 | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [activeReportType, setActiveReportType] = useState<"type1" | "type2">("type1");
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!id) return;
-
+    async function loadData() {
       try {
-        setIsLoading(true);
-        const sessionData = await getSession(Number(id));
+        if (!id) return;
         
+        const sessionData = await getSession(Number(id));
         if (!sessionData) {
           toast({
             title: "Error",
             description: "Session not found",
             variant: "destructive"
           });
-          navigate("/patients");
+          navigate("/sessions");
           return;
         }
         
         setSession(sessionData);
         
-        // Fetch patient data
         if (sessionData.patientId) {
           const patientData = await getPatient(sessionData.patientId);
-          setPatient(patientData);
+          setPatient(patientData || null);
         }
         
-        // Fetch reports
-        const medical = await getMedicalReportBySession(Number(id));
-        setMedicalReport(medical || null);
+        const medicalReport = await getMedicalReportBySession(Number(id));
+        if (medicalReport) {
+          if ('patientSituation' in medicalReport) {
+            setMedicalReportType1(medicalReport as MedicalReportType1);
+          } else {
+            setMedicalReportType2(medicalReport as MedicalReportType2);
+          }
+        }
         
-        const family = await getFamilyReportBySession(Number(id));
-        setFamilyReport(family || null);
-        
+        const familyReport = await getFamilyReportBySession(Number(id));
+        if (familyReport) {
+          if ('patientSituation' in familyReport) {
+            setFamilyReportType1(familyReport as FamilyReportType1);
+          } else {
+            setFamilyReportType2(familyReport as FamilyReportType2);
+          }
+        }
       } catch (error) {
-        console.error("Error fetching session data:", error);
+        console.error("Error loading session data:", error);
         toast({
           title: "Error",
           description: "Failed to load session data",
@@ -87,18 +101,10 @@ export default function SessionReports() {
       } finally {
         setIsLoading(false);
       }
-    };
-
-    fetchData();
+    }
+    
+    loadData();
   }, [id, navigate]);
-
-  const handleCreateMedicalReport = () => {
-    setActiveTab("medicalReport");
-  };
-
-  const handleCreateFamilyReport = () => {
-    setActiveTab("familyReport");
-  };
 
   const formatDuration = (minutes: number) => {
     if (minutes < 60) {
@@ -113,43 +119,86 @@ export default function SessionReports() {
   };
 
   // ----- Export to Word helpers -----
-  const generateMedicalReportDoc = (report: MedicalReport) => {
+  const generateMedicalReportType1Doc = (report: MedicalReportType1) => {
     return new DocxDocument({
       sections: [
         {
           children: [
-            new Paragraph({ text: "Medical Report", heading: HeadingLevel.TITLE }),
-            new Paragraph({ text: `Objectives: ${report.objectives}` }),
-            new Paragraph({ text: `Example: ${report.example}` }),
-            new Paragraph({ text: `Topics: ${report.topics}` }),
-            new Paragraph({ text: `Emotional State (Beginning): ${report.emotionalState.beginning}` }),
-            new Paragraph({ text: `Emotional State (End): ${report.emotionalState.end}` }),
-            new Paragraph({ text: `Expression Ability: ${report.expressionAbility}` }),
-            new Paragraph({ text: `Intervention Reactions: ${report.interventionReactions}` }),
-            new Paragraph({ text: `Observed Progress: ${report.observedProgress}` }),
-            new Paragraph({ text: `Obstacles (Emotional): ${report.obstacles.emotional}` }),
-            new Paragraph({ text: `Obstacles (Family Communication): ${report.obstacles.familyCommunication}` }),
-            new Paragraph({ text: `Obstacles (External Factors): ${report.obstacles.externalFactors}` }),
-            new Paragraph({ text: `Recommendations (Patient): ${report.recommendations.patient}` }),
-            new Paragraph({ text: `Recommendations (Family): ${report.recommendations.family}` }),
-            new Paragraph({ text: `Conclusion: ${report.conclusion}` }),
+            new Paragraph({ text: "Rapport psy : Séance de pair aidance", heading: HeadingLevel.TITLE }),
+            new Paragraph({ text: `Date de la séance: ${report.date}` }),
+            new Paragraph({ text: `Durée de séance: ${report.duration}` }),
+            new Paragraph({ text: `Lieu de la séance: ${report.location}` }),
+            new Paragraph({ text: `Nom du participant: ${report.participantName}` }),
+            new Paragraph({ text: `Situation du patient: ${report.patientSituation}` }),
+            new Paragraph({ text: `Situation familiale: ${report.familySituation}` }),
+            new Paragraph({ text: `Observations: ${report.observations}` }),
+            new Paragraph({ text: `Conclusion et recommandations: ${report.conclusion}` }),
+            new Paragraph({ text: `Signature: ${report.signature}` }),
           ],
         },
       ],
     });
   };
 
-  const generateFamilyReportDoc = (report: FamilyReport) => {
+  const generateMedicalReportType2Doc = (report: MedicalReportType2) => {
     return new DocxDocument({
       sections: [
         {
           children: [
-            new Paragraph({ text: "Family Report", heading: HeadingLevel.TITLE }),
-            new Paragraph({ text: `Objective: ${report.objective}` }),
-            new Paragraph({ text: `Topics With Patient: ${report.topicsWithPatient}` }),
-            new Paragraph({ text: `Topics With Family: ${report.topicsWithFamily}` }),
-            new Paragraph({ text: `General Observations: ${report.generalObservations}` }),
+            new Paragraph({ text: "Rapport : Séance d'évaluation", heading: HeadingLevel.TITLE }),
+            new Paragraph({ text: `Date de la séance: ${report.date}` }),
+            new Paragraph({ text: `Durée de séance: ${report.duration}` }),
+            new Paragraph({ text: `Lieu de la séance: ${report.location}` }),
+            new Paragraph({ text: `Nom du participant: ${report.participantName}` }),
+            new Paragraph({ text: `Objectif de la séance: ${report.sessionObjective}` }),
+            new Paragraph({ text: `Thèmes abordés avec le patient: ${report.topics.withPatient}` }),
+            new Paragraph({ text: `Thèmes abordés avec la famille: ${report.topics.withFamily}` }),
+            new Paragraph({ text: `Observations générales: ${report.generalObservations}` }),
             new Paragraph({ text: `Conclusion: ${report.conclusion}` }),
+            new Paragraph({ text: `Signature: ${report.signature}` }),
+          ],
+        },
+      ],
+    });
+  };
+
+  const generateFamilyReportType1Doc = (report: FamilyReportType1) => {
+    return new DocxDocument({
+      sections: [
+        {
+          children: [
+            new Paragraph({ text: "Rapport Famille : Séance de pair aidance", heading: HeadingLevel.TITLE }),
+            new Paragraph({ text: `Date de la séance: ${report.date}` }),
+            new Paragraph({ text: `Durée de séance: ${report.duration}` }),
+            new Paragraph({ text: `Lieu de la séance: ${report.location}` }),
+            new Paragraph({ text: `Nom du participant: ${report.participantName}` }),
+            new Paragraph({ text: `Situation du patient: ${report.patientSituation}` }),
+            new Paragraph({ text: `Situation familiale: ${report.familySituation}` }),
+            new Paragraph({ text: `Observations: ${report.observations}` }),
+            new Paragraph({ text: `Conclusion et recommandations: ${report.conclusion}` }),
+            new Paragraph({ text: `Signature: ${report.signature}` }),
+          ],
+        },
+      ],
+    });
+  };
+
+  const generateFamilyReportType2Doc = (report: FamilyReportType2) => {
+    return new DocxDocument({
+      sections: [
+        {
+          children: [
+            new Paragraph({ text: "Rapport Famille : Séance d'évaluation", heading: HeadingLevel.TITLE }),
+            new Paragraph({ text: `Date de la séance: ${report.date}` }),
+            new Paragraph({ text: `Durée de séance: ${report.duration}` }),
+            new Paragraph({ text: `Lieu de la séance: ${report.location}` }),
+            new Paragraph({ text: `Nom du participant: ${report.participantName}` }),
+            new Paragraph({ text: `Objectif de la séance: ${report.sessionObjective}` }),
+            new Paragraph({ text: `Thèmes abordés avec le patient: ${report.topics.withPatient}` }),
+            new Paragraph({ text: `Thèmes abordés avec la famille: ${report.topics.withFamily}` }),
+            new Paragraph({ text: `Observations générales: ${report.generalObservations}` }),
+            new Paragraph({ text: `Conclusion: ${report.conclusion}` }),
+            new Paragraph({ text: `Signature: ${report.signature}` }),
           ],
         },
       ],
@@ -157,21 +206,32 @@ export default function SessionReports() {
   };
 
   const handleExportMedicalReport = async () => {
-    if (!medicalReport) return;
-    const doc = generateMedicalReportDoc(medicalReport);
-    const blob = await Packer.toBlob(doc);
-    const filename = `Medical_Report_${format(new Date(session?.date ?? Date.now()), "yyyy-MM-dd")}.docx`;
-    saveAs(blob, filename);
+    if (activeReportType === "type1" && medicalReportType1) {
+      const doc = generateMedicalReportType1Doc(medicalReportType1);
+      const blob = await Packer.toBlob(doc);
+      const filename = `Medical_Report_Type1_${format(new Date(session?.date ?? Date.now()), "yyyy-MM-dd")}.docx`;
+      saveAs(blob, filename);
+    } else if (activeReportType === "type2" && medicalReportType2) {
+      const doc = generateMedicalReportType2Doc(medicalReportType2);
+      const blob = await Packer.toBlob(doc);
+      const filename = `Medical_Report_Type2_${format(new Date(session?.date ?? Date.now()), "yyyy-MM-dd")}.docx`;
+      saveAs(blob, filename);
+    }
   };
 
   const handleExportFamilyReport = async () => {
-    if (!familyReport) return;
-    const doc = generateFamilyReportDoc(familyReport);
-    const blob = await Packer.toBlob(doc);
-    const filename = `Family_Report_${format(new Date(session?.date ?? Date.now()), "yyyy-MM-dd")}.docx`;
-    saveAs(blob, filename);
+    if (activeReportType === "type1" && familyReportType1) {
+      const doc = generateFamilyReportType1Doc(familyReportType1);
+      const blob = await Packer.toBlob(doc);
+      const filename = `Family_Report_Type1_${format(new Date(session?.date ?? Date.now()), "yyyy-MM-dd")}.docx`;
+      saveAs(blob, filename);
+    } else if (activeReportType === "type2" && familyReportType2) {
+      const doc = generateFamilyReportType2Doc(familyReportType2);
+      const blob = await Packer.toBlob(doc);
+      const filename = `Family_Report_Type2_${format(new Date(session?.date ?? Date.now()), "yyyy-MM-dd")}.docx`;
+      saveAs(blob, filename);
+    }
   };
-  // ----- End helpers -----
 
   if (isLoading) {
     return (
@@ -184,63 +244,30 @@ export default function SessionReports() {
   }
 
   return (
-    <Layout title={session ? `Session Reports - ${format(new Date(session.date), "PP")}` : "Session Reports"}>
-      <div className="space-y-4">
-        <div>
-          <Link 
-            to={patient ? `/patients/${patient.id}/sessions` : "/patients"} 
-            className="text-sm text-muted-foreground hover:underline flex items-center"
-          >
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {patient ? `Back to ${patient.name}'s Sessions` : "Back"}
-          </Link>
-          
-          {session && (
-            <h2 className="text-2xl font-semibold mt-2">
-              Session on {format(new Date(session.date), "PPPP")}
-              {patient && <span className="text-lg text-muted-foreground ml-2">with {patient.name}</span>}
-            </h2>
-          )}
+    <Layout title="Session Reports">
+      <div className="container mx-auto py-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="icon" onClick={() => navigate("/sessions")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">
+              {patient ? patient.name : "Unknown Patient"}
+            </h1>
+            <p className="text-muted-foreground">
+              {session?.date ? format(new Date(session.date), "PPP") : "No date"}
+            </p>
+          </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="medicalReport">Medical Report</TabsTrigger>
             <TabsTrigger value="familyReport">Family Report</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="overview" className="space-y-4 mt-4">
-            {session && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Session Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Date</p>
-                      <p>{format(new Date(session.date), "PPP")}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Duration</p>
-                      <p>{formatDuration(session.duration)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Location</p>
-                      <p>{session.location}</p>
-                    </div>
-                    {patient && (
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Patient</p>
-                        <p>{patient.name}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
+
+          <TabsContent value="overview" className="mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
@@ -250,26 +277,50 @@ export default function SessionReports() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {medicalReport ? (
-                    <p>A medical report has been created for this session.</p>
-                  ) : (
-                    <p>No medical report has been created yet for this session.</p>
-                  )}
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Button
+                        variant={activeReportType === "type1" ? "default" : "outline"}
+                        onClick={() => setActiveReportType("type1")}
+                      >
+                        Type 1
+                      </Button>
+                      <Button
+                        variant={activeReportType === "type2" ? "default" : "outline"}
+                        onClick={() => setActiveReportType("type2")}
+                      >
+                        Type 2
+                      </Button>
+                    </div>
+                    {activeReportType === "type1" ? (
+                      medicalReportType1 ? (
+                        <p>A medical report type 1 has been created for this session.</p>
+                      ) : (
+                        <p>No medical report type 1 has been created yet for this session.</p>
+                      )
+                    ) : (
+                      medicalReportType2 ? (
+                        <p>A medical report type 2 has been created for this session.</p>
+                      ) : (
+                        <p>No medical report type 2 has been created yet for this session.</p>
+                      )
+                    )}
+                  </div>
                 </CardContent>
                 <CardFooter className="flex gap-2">
                   <Button 
-                    onClick={handleCreateMedicalReport}
-                    variant={medicalReport ? "outline" : "default"}
+                    onClick={() => setActiveTab("medicalReport")}
+                    variant={activeReportType === "type1" ? (medicalReportType1 ? "outline" : "default") : (medicalReportType2 ? "outline" : "default")}
                   >
                     <FileText className="mr-2 h-4 w-4" />
-                    {medicalReport ? "View/Edit Report" : "Create Report"}
+                    {activeReportType === "type1" ? (medicalReportType1 ? "View/Edit Report" : "Create Report") : (medicalReportType2 ? "View/Edit Report" : "Create Report")}
                   </Button>
-                  {medicalReport && (
+                  {(activeReportType === "type1" && medicalReportType1) || (activeReportType === "type2" && medicalReportType2) ? (
                     <Button variant="secondary" onClick={handleExportMedicalReport}>
                       <Download className="mr-2 h-4 w-4" />
                       Export Word
                     </Button>
-                  )}
+                  ) : null}
                 </CardFooter>
               </Card>
               
@@ -281,26 +332,50 @@ export default function SessionReports() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {familyReport ? (
-                    <p>A family report has been created for this session.</p>
-                  ) : (
-                    <p>No family report has been created yet for this session.</p>
-                  )}
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Button
+                        variant={activeReportType === "type1" ? "default" : "outline"}
+                        onClick={() => setActiveReportType("type1")}
+                      >
+                        Type 1
+                      </Button>
+                      <Button
+                        variant={activeReportType === "type2" ? "default" : "outline"}
+                        onClick={() => setActiveReportType("type2")}
+                      >
+                        Type 2
+                      </Button>
+                    </div>
+                    {activeReportType === "type1" ? (
+                      familyReportType1 ? (
+                        <p>A family report type 1 has been created for this session.</p>
+                      ) : (
+                        <p>No family report type 1 has been created yet for this session.</p>
+                      )
+                    ) : (
+                      familyReportType2 ? (
+                        <p>A family report type 2 has been created for this session.</p>
+                      ) : (
+                        <p>No family report type 2 has been created yet for this session.</p>
+                      )
+                    )}
+                  </div>
                 </CardContent>
                 <CardFooter className="flex gap-2">
                   <Button 
-                    onClick={handleCreateFamilyReport}
-                    variant={familyReport ? "outline" : "default"}
+                    onClick={() => setActiveTab("familyReport")}
+                    variant={activeReportType === "type1" ? (familyReportType1 ? "outline" : "default") : (familyReportType2 ? "outline" : "default")}
                   >
                     <FileText className="mr-2 h-4 w-4" />
-                    {familyReport ? "View/Edit Report" : "Create Report"}
+                    {activeReportType === "type1" ? (familyReportType1 ? "View/Edit Report" : "Create Report") : (familyReportType2 ? "View/Edit Report" : "Create Report")}
                   </Button>
-                  {familyReport && (
+                  {(activeReportType === "type1" && familyReportType1) || (activeReportType === "type2" && familyReportType2) ? (
                     <Button variant="secondary" onClick={handleExportFamilyReport}>
                       <Download className="mr-2 h-4 w-4" />
                       Export Word
                     </Button>
-                  )}
+                  ) : null}
                 </CardFooter>
               </Card>
             </div>
@@ -308,37 +383,69 @@ export default function SessionReports() {
           
           <TabsContent value="medicalReport" className="mt-4">
             {session && (
-              <MedicalReportForm 
-                sessionId={Number(id)} 
-                report={medicalReport} 
-                onSaved={(savedReport) => {
-                  setMedicalReport(savedReport);
-                  setActiveTab("overview");
-                  toast({
-                    title: "Success",
-                    description: "Medical report saved successfully"
-                  });
-                }}
-                onCancel={() => setActiveTab("overview")}
-              />
+              activeReportType === "type1" ? (
+                <MedicalReportType1Form 
+                  sessionId={Number(id)} 
+                  report={medicalReportType1} 
+                  onSaved={(savedReport) => {
+                    setMedicalReportType1(savedReport);
+                    setActiveTab("overview");
+                    toast({
+                      title: "Success",
+                      description: "Medical report type 1 saved successfully"
+                    });
+                  }}
+                  onCancel={() => setActiveTab("overview")}
+                />
+              ) : (
+                <MedicalReportType2Form 
+                  sessionId={Number(id)} 
+                  report={medicalReportType2} 
+                  onSaved={(savedReport) => {
+                    setMedicalReportType2(savedReport);
+                    setActiveTab("overview");
+                    toast({
+                      title: "Success",
+                      description: "Medical report type 2 saved successfully"
+                    });
+                  }}
+                  onCancel={() => setActiveTab("overview")}
+                />
+              )
             )}
           </TabsContent>
           
           <TabsContent value="familyReport" className="mt-4">
             {session && (
-              <FamilyReportForm 
-                sessionId={Number(id)} 
-                report={familyReport}
-                onSaved={(savedReport) => {
-                  setFamilyReport(savedReport);
-                  setActiveTab("overview");
-                  toast({
-                    title: "Success",
-                    description: "Family report saved successfully"
-                  });
-                }}
-                onCancel={() => setActiveTab("overview")}
-              />
+              activeReportType === "type1" ? (
+                <FamilyReportType1Form 
+                  sessionId={Number(id)} 
+                  report={familyReportType1} 
+                  onSaved={(savedReport) => {
+                    setFamilyReportType1(savedReport);
+                    setActiveTab("overview");
+                    toast({
+                      title: "Success",
+                      description: "Family report type 1 saved successfully"
+                    });
+                  }}
+                  onCancel={() => setActiveTab("overview")}
+                />
+              ) : (
+                <FamilyReportType2Form 
+                  sessionId={Number(id)} 
+                  report={familyReportType2} 
+                  onSaved={(savedReport) => {
+                    setFamilyReportType2(savedReport);
+                    setActiveTab("overview");
+                    toast({
+                      title: "Success",
+                      description: "Family report type 2 saved successfully"
+                    });
+                  }}
+                  onCancel={() => setActiveTab("overview")}
+                />
+              )
             )}
           </TabsContent>
         </Tabs>
