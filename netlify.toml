@@ -7,7 +7,7 @@
 # This prevents sensitive credentials from being stored in source control
 [build.environment]
   # Only non-sensitive values should be here
-  NODE_VERSION = "20.x"
+  NODE_VERSION = "20.11.1"
   NPM_VERSION = "9.x"
   GOOGLE_REDIRECT_URI = "https://creative-kleicha-a0928a.netlify.app/oauth2callback"
   VITE_GOOGLE_REDIRECT_URI = "https://creative-kleicha-a0928a.netlify.app/oauth2callback"
