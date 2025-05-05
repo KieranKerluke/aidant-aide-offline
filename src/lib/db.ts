@@ -144,7 +144,7 @@ export interface Task {
 }
 
 // Database version
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const DB_NAME = 'pair-aidant-manager';
 
 // DB singleton instance
@@ -154,7 +154,7 @@ let dbPromise: Promise<IDBPDatabase<PairAidantDB>> | null = null;
 export function getDB(): Promise<IDBPDatabase<PairAidantDB>> {
   if (!dbPromise) {
     dbPromise = openDB<PairAidantDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion) {
         // Create object stores if they don't exist
         if (!db.objectStoreNames.contains('patients')) {
           const patientStore = db.createObjectStore('patients', { keyPath: 'id', autoIncrement: true });
@@ -174,12 +174,24 @@ export function getDB(): Promise<IDBPDatabase<PairAidantDB>> {
           taskStore.createIndex('by-patient', 'patientId');
         }
 
+        // Handle medicalReports store upgrade
         if (!db.objectStoreNames.contains('medicalReports')) {
+          const medicalReportStore = db.createObjectStore('medicalReports', { keyPath: 'id', autoIncrement: true });
+          medicalReportStore.createIndex('by-session', 'sessionId');
+        } else if (oldVersion < 2) {
+          // Clear old data to ensure clean state for new schema
+          db.deleteObjectStore('medicalReports');
           const medicalReportStore = db.createObjectStore('medicalReports', { keyPath: 'id', autoIncrement: true });
           medicalReportStore.createIndex('by-session', 'sessionId');
         }
 
+        // Handle familyReports store upgrade
         if (!db.objectStoreNames.contains('familyReports')) {
+          const familyReportStore = db.createObjectStore('familyReports', { keyPath: 'id', autoIncrement: true });
+          familyReportStore.createIndex('by-session', 'sessionId');
+        } else if (oldVersion < 2) {
+          // Clear old data to ensure clean state for new schema
+          db.deleteObjectStore('familyReports');
           const familyReportStore = db.createObjectStore('familyReports', { keyPath: 'id', autoIncrement: true });
           familyReportStore.createIndex('by-session', 'sessionId');
         }
