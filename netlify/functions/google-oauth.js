@@ -1,11 +1,15 @@
 // Netlify Function for Google OAuth token exchange
 const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
-const { secureLogger } = require('@/lib/secure-logger');
+
+// Define a simple logger fallback since we can't directly import from src in Netlify Functions
+const secureLogger = {
+  error: (message, error) => console.error(message, error)
+};
 
 // Initialize Supabase client
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
