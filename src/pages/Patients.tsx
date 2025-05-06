@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
-import { getAllPatients, Patient, deletePatient } from "@/lib/db";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { getAllPatients, deletePatient, type Patient } from "../lib/db";
+import { Edit, Plus, Trash2, LogIn } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { 
   Table, 
@@ -25,8 +25,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { PatientForm } from "@/components/patient-form";
+import { isAuthenticated, getAuthUrl } from "../lib/auth";
 
 export default function Patients() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -35,6 +36,34 @@ export default function Patients() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPatientFormOpen, setIsPatientFormOpen] = useState(false);
   const [patientToEdit, setPatientToEdit] = useState<Patient | undefined>(undefined);
+  const [authenticated, setAuthenticated] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Check authentication
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuth = await isAuthenticated();
+      setAuthenticated(isAuth);
+      
+      if (isAuth) {
+        loadPatients();
+      } else {
+        setIsLoading(false);
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in with Google to access your data",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    checkAuth();
+  }, []);
+
+  const handleSignIn = () => {
+    window.location.href = getAuthUrl();
+  };
 
   const loadPatients = async () => {
     try {
@@ -53,10 +82,6 @@ export default function Patients() {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadPatients();
-  }, []);
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -120,115 +145,124 @@ export default function Patients() {
 
   return (
     <Layout title="Patients">
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <Input
-            placeholder="Search patients..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="max-w-sm"
-          />
-          <Button onClick={handleAddNewPatient}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add New Patient
+      {authenticated ? (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            <Input
+              placeholder="Search patients..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button onClick={handleAddNewPatient}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Patient
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <p>Loading patients...</p>
+            </div>
+          ) : filteredPatients.length === 0 ? (
+            <div className="text-center p-8 border rounded-lg">
+              {patients.length === 0 ? (
+                <>
+                  <p className="text-muted-foreground mb-4">You haven't added any patients yet.</p>
+                  <Button onClick={handleAddNewPatient}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Your First Patient
+                  </Button>
+                </>
+              ) : (
+                <p className="text-muted-foreground">No patients match your search criteria.</p>
+              )}
+            </div>
+          ) : (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Age</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Tags</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPatients.map((patient) => (
+                    <TableRow key={patient.id}>
+                      <TableCell className="font-medium">
+                        <Link 
+                          to={`/patients/${patient.id}/sessions`} 
+                          className="hover:underline"
+                        >
+                          {patient.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{calculateAge(patient.dateOfBirth)} years</TableCell>
+                      <TableCell>{patient.personalPhone}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {patient.tags && patient.tags.map((tag, index) => (
+                            <Badge key={index} variant="secondary">{tag}</Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleEditPatient(patient)}
+                        >
+                          <Edit className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link to={`/patients/${patient.id}/sessions`}>
+                            <Plus className="h-4 w-4" />
+                            <span className="sr-only">Sessions</span>
+                          </Link>
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Patient</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete {patient.name}? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeletePatient(patient.id)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center p-8">
+          <Button onClick={handleSignIn}>
+            <LogIn className="mr-2 h-4 w-4" />
+            Sign in with Google
           </Button>
         </div>
-
-        {isLoading ? (
-          <div className="flex justify-center p-8">
-            <p>Loading patients...</p>
-          </div>
-        ) : filteredPatients.length === 0 ? (
-          <div className="text-center p-8 border rounded-lg">
-            {patients.length === 0 ? (
-              <>
-                <p className="text-muted-foreground mb-4">You haven't added any patients yet.</p>
-                <Button onClick={handleAddNewPatient}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Your First Patient
-                </Button>
-              </>
-            ) : (
-              <p className="text-muted-foreground">No patients match your search criteria.</p>
-            )}
-          </div>
-        ) : (
-          <div className="border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Age</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Tags</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPatients.map((patient) => (
-                  <TableRow key={patient.id}>
-                    <TableCell className="font-medium">
-                      <Link 
-                        to={`/patients/${patient.id}/sessions`} 
-                        className="hover:underline"
-                      >
-                        {patient.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{calculateAge(patient.dateOfBirth)} years</TableCell>
-                    <TableCell>{patient.personalPhone}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {patient.tags && patient.tags.map((tag, index) => (
-                          <Badge key={index} variant="secondary">{tag}</Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => handleEditPatient(patient)}
-                      >
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link to={`/patients/${patient.id}/sessions`}>
-                          <Plus className="h-4 w-4" />
-                          <span className="sr-only">Sessions</span>
-                        </Link>
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Patient</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete {patient.name}? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeletePatient(patient.id)}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Patient Form Dialog */}
       <PatientForm

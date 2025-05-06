@@ -13,7 +13,8 @@ export function getAuthUrl(): string {
     access_type: 'offline',
     scope: [
       'https://www.googleapis.com/auth/drive.file',
-      'https://www.googleapis.com/auth/drive.appdata'
+      'https://www.googleapis.com/auth/drive.appdata',
+      'https://www.googleapis.com/auth/calendar'
     ],
   });
 }
@@ -45,4 +46,4 @@ export function isAuthenticated(): boolean {
 export function signOut(): void {
   localStorage.removeItem('google_tokens');
   oauth2Client.revokeCredentials();
-} 
+}

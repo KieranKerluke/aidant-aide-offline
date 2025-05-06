@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Task, Patient, getAllPatients } from "@/lib/db";
+import { Task, Patient, getAllPatients } from "../lib/db";
 import {
   Dialog,
   DialogContent,
@@ -244,10 +244,15 @@ export function TaskDialog({ isOpen, onOpenChange, task, onSave }: TaskDialogPro
     return addMinutes(dueDate, -delayMinutes);
   };
 
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    let taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
+    // Create a base task object that matches the Task interface
+    let taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
+      title: '',
+      completed: false
+    };
     
     if (taskType === "event") {
       // Validate required fields for event
@@ -276,31 +281,21 @@ export function TaskDialog({ isOpen, onOpenChange, task, onSave }: TaskDialogPro
       // Calculate reminder time based on start time and delay
       const reminderTime = startDateTime ? calculateReminderTime(startDateTime, reminderDelay) : undefined;
       
-      // Create event data
-      const eventData = {
-        title: eventTitle,
-        location,
-        startDateTime: startDateTime?.toISOString(),
-        endDateTime: endDateTime?.toISOString(),
-        reminderDelay,
-        repetitionFrequency,
-        customRepetitionFrequency: repetitionFrequency === "custom" ? customRepetitionFrequency : undefined,
-        notes,
-        image: imagePreview
-      };
-      
-      // Create task data with event data in description
+      // Update task data for event
       taskData = {
-        description: `[EVENT]${JSON.stringify(eventData)}`,
-        dueDate: startDateTime?.toISOString() || new Date().toISOString(),
-        priority,
-        status,
-        patientId,
-        reminderAt: reminderTime?.toISOString()
+        title: eventTitle,
+        description: location ? `Location: ${location}` : '',
+        dueDate: startDateTime?.toISOString(),
+        status: status || 'pending',
+        priority: priority || 'medium',
+        patientId: patientId,
+        location: location,
+        reminderAt: reminderTime?.toISOString(),
+        completed: status === 'completed'
       };
     } else {
       // Validate required fields for todo
-      if (!todoTitle || !deadline || !deadlineTime) {
+      if (!todoTitle || !deadline) {
         console.error("Missing required fields for todo");
         return;
       }
@@ -310,64 +305,30 @@ export function TaskDialog({ isOpen, onOpenChange, task, onSave }: TaskDialogPro
         deadline.getFullYear(),
         deadline.getMonth(),
         deadline.getDate(),
-        deadlineTime.getHours(),
-        deadlineTime.getMinutes()
-      ) : undefined;
+        deadlineTime?.getHours() || 0,
+        deadlineTime?.getMinutes() || 0
+      ) : deadline;
       
       // Calculate reminder time based on deadline and delay
       const reminderTime = deadlineDateTime ? calculateReminderTime(deadlineDateTime, reminderDelay) : undefined;
       
-      // Create metadata for todo
-      const todoMetadata = {
-        category,
-        repetitionFrequency,
-        customRepetitionFrequency: repetitionFrequency === "custom" ? customRepetitionFrequency : undefined,
-        notes,
-        image: imagePreview
-      };
-      
-      // Create task data with todo metadata in description
-      const metadataStr = Object.values(todoMetadata).some(v => v) ? JSON.stringify(todoMetadata) : '';
+      // Update task data for todo
       taskData = {
-        description: `${todoTitle}${metadataStr ? ' ' + metadataStr : ''}`,
-        dueDate: deadlineDateTime?.toISOString() || new Date().toISOString(),
-        priority,
-        status,
-        patientId,
-        reminderAt: reminderTime?.toISOString()
+        title: todoTitle,
+        description: notes || '',
+        dueDate: deadlineDateTime?.toISOString(),
+        status: status || 'pending',
+        priority: priority || 'medium',
+        patientId: patientId,
+        reminderAt: reminderTime?.toISOString(),
+        completed: status === 'completed'
       };
     }
     
     // Save the task
     onSave(taskData);
     
-    // Schedule notification if reminder is set
-    if (taskData.reminderAt) {
-      try {
-        // Create a temporary ID for the reminder if this is a new task
-        const tempId = task?.id || Date.now();
-        
-        // Create reminder payload
-        const reminder: ReminderPayload = {
-          id: tempId,
-          title: `Reminder: ${taskType === "event" ? eventTitle : todoTitle}`,
-          body: `Due: ${format(new Date(taskData.dueDate), 'PPP')} at ${format(new Date(taskData.dueDate), 'HH:mm')}`,
-          timestamp: new Date(taskData.reminderAt).getTime(),
-          url: `/tasks?id=${tempId}`,
-          taskId: task?.id,
-          tag: `task-${tempId}`
-        };
-        
-        // Schedule the notification
-        await scheduleNotification(reminder);
-        console.log(`Scheduled notification for task at ${taskData.reminderAt}`);
-      } catch (error) {
-        console.error('Error scheduling notification:', error);
-      }
-    }
-    
-    // Reset form and close dialog
-    resetForm();
+    // Close the dialog
     onOpenChange(false);
   };
 

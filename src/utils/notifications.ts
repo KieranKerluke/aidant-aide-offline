@@ -4,11 +4,11 @@
  * This module handles:
  * 1. Requesting notification permissions
  * 2. Scheduling notifications (with fallbacks)
- * 3. Hydrating notifications from IndexedDB
+ * 3. Hydrating notifications from Google Drive database
  * 4. Communicating with the service worker
  */
 
-import { Task } from "@/lib/db";
+import { Task, getAllTasks } from "@/lib/db";
 
 // Define interfaces for our notification system
 export interface ReminderPayload {
@@ -219,19 +219,22 @@ export const cancelNotification = async (id: number): Promise<void> => {
 };
 
 /**
- * Hydrate all future reminders from the database
- * @param tasks Array of tasks with reminders
+ * Hydrate all future reminders from the Google Drive database
+ * @param tasks Array of tasks with reminders (optional - if not provided, will fetch from database)
  */
-export const hydrateReminders = async (tasks: Task[]): Promise<void> => {
+export const hydrateReminders = async (tasks?: Task[]): Promise<void> => {
   const now = Date.now();
   
+  // If tasks are not provided, fetch them from the database
+  const tasksToProcess = tasks || await getAllTasks();
+  
   // Filter for tasks with future reminders
-  const tasksWithReminders = tasks.filter(task => {
+  const tasksWithReminders = tasksToProcess.filter(task => {
     // Check if the task has a reminderAt property and it's in the future
     return task.reminderAt && new Date(task.reminderAt).getTime() > now;
   });
 
-  console.log(`Hydrating ${tasksWithReminders.length} reminders`);
+  console.log(`Hydrating ${tasksWithReminders.length} reminders from Google Drive database`);
 
   // Schedule each reminder
   for (const task of tasksWithReminders) {
@@ -240,8 +243,8 @@ export const hydrateReminders = async (tasks: Task[]): Promise<void> => {
     // Create a reminder payload
     const reminder: ReminderPayload = {
       id: task.id!,
-      title: `Reminder: ${task.description.substring(0, 50)}`,
-      body: `Due: ${new Date(task.dueDate).toLocaleString()}`,
+      title: `Reminder: ${task.title || task.description?.substring(0, 50) || 'Task'}`,
+      body: `Due: ${new Date(task.dueDate || '').toLocaleString()}`,
       timestamp: reminderTime,
       url: `/tasks?id=${task.id}`,
       taskId: task.id,
@@ -257,22 +260,29 @@ export const hydrateReminders = async (tasks: Task[]): Promise<void> => {
  * Set up a listener for messages from the service worker
  */
 export const setupServiceWorkerListener = (): void => {
-  if (!supportsServiceWorker()) return;
+  if (!supportsServiceWorker()) {
+    return;
+  }
 
-  // Listen for messages from the service worker
   navigator.serviceWorker.addEventListener('message', async (event) => {
-    const { type, data } = event.data;
-
-    switch (type) {
+    console.log('Received message from service worker:', event.data);
+    
+    switch (event.data.type) {
       case 'SYNC_REMINDERS':
         // Re-hydrate reminders when requested by the service worker
         console.log('Received SYNC_REMINDERS message from service worker');
-        // You would typically call a function here to fetch tasks from IndexedDB
-        // and then call hydrateReminders with the results
+        // Fetch tasks from Google Drive database and hydrate reminders
+        try {
+          const tasks = await getAllTasks();
+          await hydrateReminders(tasks);
+          console.log('Successfully synced reminders from Google Drive database');
+        } catch (error) {
+          console.error('Error syncing reminders from Google Drive:', error);
+        }
         break;
         
       default:
-        console.log('Received unknown message from service worker:', type);
+        console.log('Unknown message type from service worker:', event.data.type);
     }
   });
 };

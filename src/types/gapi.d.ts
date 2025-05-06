@@ -1,4 +1,3 @@
-
 // Type definitions for Google API
 declare namespace gapi.client {
   namespace calendar {
@@ -61,6 +60,7 @@ interface Window {
         discoveryDocs: string[];
         scope: string;
       }): Promise<void>;
+      setToken(token: { access_token: string } | null): void;
       calendar: typeof gapi.client.calendar;
     };
     auth2: {

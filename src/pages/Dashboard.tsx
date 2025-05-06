@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Layout } from "@/components/layout";
-import { getAllTasks, getTodaySessions, Patient, Session, Task } from "@/lib/db";
+import { getAllTasks, getTodaySessions, getPatient, type Session, type Task, type Patient, createTask, updateTask } from "../lib/db";
 import { Calendar, CheckSquare, Plus, User } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getPatient } from "@/lib/db";
 import { TasksList } from "@/components/tasks-list";
 import { TaskDialog } from "@/components/task-dialog";
+import { isAuthenticated, getAuthUrl } from "../lib/auth";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Dashboard() {
   const [sessions, setSessions] = useState<Array<Session & { patientName: string }>>([]);
@@ -15,40 +16,68 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Get today's sessions
-        const todaySessions = await getTodaySessions();
-        
-        // For each session, get the patient name
-        const sessionsWithPatients = await Promise.all(
-          todaySessions.map(async (session) => {
-            const patient = await getPatient(session.patientId);
-            return {
-              ...session,
-              patientName: patient?.name || "Unknown Patient"
-            };
-          })
-        );
-
-        // Get all tasks instead of just pending tasks
-        const allTasks = await getAllTasks();
-        
-        setSessions(sessionsWithPatients);
-        setTasks(allTasks);
-      } catch (error) {
-        console.error("Error loading dashboard data:", error);
-      } finally {
+    // Check if the user is authenticated with Google Drive
+    const checkAuth = async () => {
+      const authenticated = await isAuthenticated();
+      setAuthenticated(authenticated);
+      
+      if (authenticated) {
+        loadDashboardData();
+      } else {
         setIsLoading(false);
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in with Google to access your data",
+          variant: "destructive"
+        });
       }
     };
-
-    loadDashboardData();
+    
+    checkAuth();
   }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Get today's sessions
+      const todaySessions = await getTodaySessions();
+      
+      // For each session, get the patient name
+      const sessionsWithPatients = await Promise.all(
+        todaySessions.map(async (session) => {
+          const patient = await getPatient(session.patientId);
+          return {
+            ...session,
+            patientName: patient?.name || "Unknown Patient"
+          };
+        })
+      );
+
+      // Get all tasks instead of just pending tasks
+      const allTasks = await getAllTasks();
+      
+      setSessions(sessionsWithPatients);
+      setTasks(allTasks);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignIn = () => {
+    window.location.href = getAuthUrl();
+  };
 
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString([], { 
@@ -67,12 +96,59 @@ export default function Dashboard() {
     console.log("Delete task requested for ID:", taskId);
   };
 
-  const handleSaveTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    // This is just a placeholder - actual saving would be handled in the Tasks page
-    console.log("Save task requested:", taskData);
-    setIsTaskDialogOpen(false);
-    setTaskToEdit(null);
+  const handleCreateTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newTask = await createTask(taskData);
+      setTasks([...tasks, newTask]);
+      toast({
+        title: "Success",
+        description: "Task created successfully",
+      });
+    } catch (error) {
+      console.error("Error creating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create task",
+        variant: "destructive",
+      });
+    }
   };
+
+  const handleUpdateTask = async (taskData: Task) => {
+    try {
+      const updatedTask = await updateTask(taskData);
+      setTasks(tasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+      toast({
+        title: "Success",
+        description: "Task updated successfully",
+      });
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update task",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (!authenticated && !isLoading) {
+    return (
+      <Layout title="Dashboard">
+        <div className="flex flex-col items-center justify-center h-[70vh] gap-6">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl font-bold">Google Drive Authentication Required</h2>
+            <p className="text-muted-foreground">
+              This application now uses Google Drive to store your data. Please sign in with your Google account to continue.
+            </p>
+          </div>
+          <Button onClick={handleSignIn} size="lg">
+            Sign in with Google
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Dashboard">
@@ -171,7 +247,13 @@ export default function Dashboard() {
         isOpen={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
         task={taskToEdit}
-        onSave={handleSaveTask}
+        onSave={(taskData) => {
+          if (taskToEdit) {
+            handleUpdateTask({ ...taskToEdit, ...taskData });
+          } else {
+            handleCreateTask(taskData);
+          }
+        }}
       />
     </Layout>
   );

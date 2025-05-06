@@ -25,16 +25,33 @@ const COLLECTIONS = {
 
 // Type definitions for collections
 export interface Patient {
-  id: number;
+  id?: number;
   name: string;
-  // Add other patient fields
+  fatherName?: string;
+  fatherPhone?: string;
+  motherName?: string;
+  motherPhone?: string;
+  dateOfBirth: string;
+  maritalStatus?: string;
+  numberOfChildren?: string;
+  cityOfResidence?: string;
+  personalPhone?: string;
+  illnessDuration?: string;
+  treatingDoctor?: string;
+  tags?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Session {
   id: number;
   patientId: number;
   date: string;
-  // Add other session fields
+  location?: string;
+  duration?: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MedicalReportType1 {
@@ -111,10 +128,18 @@ export interface FamilyReportType2 {
 }
 
 export interface Task {
-  id: number;
+  id?: number;
   title: string;
-  completed: boolean;
-  // Add other task fields
+  completed?: boolean;
+  status?: 'pending' | 'in-progress' | 'completed';
+  priority?: 'low' | 'medium' | 'high';
+  dueDate?: string;
+  description?: string;
+  patientId?: number;
+  location?: string;
+  reminderAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Get or create the database folder

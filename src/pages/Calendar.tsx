@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { toast } from "@/components/ui/use-toast";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from "date-fns";
@@ -24,16 +23,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Toaster as CustomToaster } from "@/components/ui/toaster";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
-import { getAllSessions } from "@/lib/db";
+import { getAllSessions, Session } from "../lib/db";
 import { useNavigate } from "react-router-dom";
 import { GOOGLE_CLIENT_ID, GOOGLE_API_KEY, GOOGLE_REDIRECT_URI, buildGoogleAuthUrl } from "@/utils/google-auth";
-import { supabase } from '@/lib/supabase'
-import { secureRetrieve, secureStore, secureDelete, needsRefresh } from '@/lib/secure-storage'
-import { secureFetch } from '@/lib/csrf'
-import { secureLogger } from '@/lib/secure-logger'
+import { isAuthenticated, getAuthUrl, handleAuthCallback, signOut } from "../lib/auth";
 
 // Define interface for Google Calendar events
 interface CalendarEvent {
@@ -52,189 +47,80 @@ interface CalendarEvent {
   htmlLink?: string;
 }
 
-interface GoogleAuthInstance {
-  signIn(): Promise<any>;
-  signOut(): Promise<any>;
-  currentUser: {
-    get(): {
-      getAuthResponse(): {
-        access_token: string;
-        refresh_token?: string;
-        expires_in: number;
-      };
-    };
-  };
-}
-
 export default function Calendar() {
-  const { toast } = useToast()
-  const [isAuthorized, setIsAuthorized] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [events, setEvents] = useState<CalendarEvent[]>([])
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [isLoadingGoogleScript, setIsLoadingGoogleScript] = useState(false)
-  const [authError, setAuthError] = useState<string | null>(null)
-  const navigate = useNavigate()
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const { toast } = useToast();
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [isLoadingGoogleScript, setIsLoadingGoogleScript] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   // Fetch local sessions data
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
     queryKey: ["sessions"],
     queryFn: getAllSessions,
-  })
+  });
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    checkAuth();
+  }, []);
 
   async function checkAuth() {
     try {
-      // Use the new secure storage system
-      const token = await secureRetrieve()
-      if (token) {
-        const expiresAt = new Date(token.expires_at)
-        if (expiresAt > new Date()) {
-          // Token is still valid
-          window.gapi.client.setToken({
-            access_token: token.access_token
-          })
-          setIsAuthorized(true)
-          return
-        } else if (token.refresh_token) {
-          // Token expired but we have a refresh token
-          await refreshToken(token.refresh_token)
-          return
-        }
+      // Check if user is authenticated with Google
+      if (isAuthenticated()) {
+        setIsAuthorized(true);
+        return;
       }
       // No valid token, need to authorize
-      setIsAuthorized(false)
+      setIsAuthorized(false);
     } catch (error) {
-      secureLogger.error('Error checking auth:', error)
-      setIsAuthorized(false)
-    }
-  }
-
-  async function refreshToken(refreshToken: string) {
-    try {
-      // Use a server-side function for token refresh instead of direct API call
-      // This prevents exposing client credentials in the frontend
-      const response = await secureFetch('/.netlify/functions/refresh-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const data = await response.json()
-      if (data.error) {
-        throw new Error(data.error)
-      }
-
-      const expiresAt = new Date()
-      expiresAt.setSeconds(expiresAt.getSeconds() + data.expires_in)
-
-      const tokenData = {
-        access_token: data.access_token,
-        refresh_token: refreshToken, // Keep the original refresh token
-        expires_at: new Date(Date.now() + data.expires_in * 1000).toISOString(),
-        expires_in: data.expires_in
-      }
-      
-      // Store the refreshed token using secure storage
-      await secureStore(tokenData)
-      
-      // Update the client
-      window.gapi.client.setToken({
-        access_token: data.access_token
-      })
-
-      setIsAuthorized(true)
-    } catch (error) {
-      secureLogger.error('Error refreshing token:', error)
-      await secureDelete() // Use secureDelete instead of deleteGoogleToken
-      setIsAuthorized(false)
+      console.error('Error checking auth:', error);
+      setIsAuthorized(false);
     }
   }
 
   async function handleGoogleAuth() {
     try {
-      setIsLoading(true)
-      const authInstance = window.gapi.auth2.getAuthInstance() as unknown as GoogleAuthInstance
-      await authInstance.signIn()
-      const authResponse = authInstance.currentUser.get().getAuthResponse()
-      
-      const expiresAt = new Date()
-      expiresAt.setSeconds(expiresAt.getSeconds() + authResponse.expires_in)
-
-      // Use secureStore instead of storeGoogleToken
-      await secureStore({
-        access_token: authResponse.access_token,
-        refresh_token: authResponse.refresh_token,
-        expires_at: expiresAt.toISOString(),
-        expires_in: authResponse.expires_in
-      })
-
-      setIsAuthorized(true)
-      toast({
-        title: 'Success',
-        description: 'Successfully connected to Google Calendar',
-      })
+      setIsLoading(true);
+      const authUrl = getAuthUrl();
+      navigate(authUrl);
     } catch (error) {
-      secureLogger.error('Error authorizing:', error)
+      console.error('Error authorizing:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to connect to Google Calendar',
-        variant: 'destructive',
-      })
+        title: "Error",
+        description: "Failed to connect to Google Calendar",
+        variant: "destructive"
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
   async function handleGoogleSignout() {
     try {
-      setIsLoading(true)
-      
-      // Sign out from Google
-      if (window.gapi && window.gapi.auth2) {
-        const authInstance = window.gapi.auth2.getAuthInstance()
-        if (authInstance) {
-          await authInstance.signOut()
-        }
-      }
-      
-      // Clear tokens from secure storage
-      await secureDelete()
-      
-      // Also revoke access on the server side
-      const token = await secureRetrieve()
-      if (token?.access_token) {
-        await secureFetch('/.netlify/functions/revoke-token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ token: token.access_token }),
-        })
-      }
-      
-      setIsAuthorized(false)
-      setEvents([])
+      setIsLoading(true);
+      await signOut();
+      setIsAuthorized(false);
+      setEvents([]);
       toast({
-        title: 'Signed Out',
-        description: 'Successfully signed out from Google Calendar'
-      })
+        title: "Signed Out",
+        description: "Successfully signed out from Google Calendar"
+      });
     } catch (error) {
-      secureLogger.error('Error signing out:', error)
+      console.error('Error signing out:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to sign out properly',
-        variant: 'destructive'
-      })
+        title: "Error",
+        description: "Failed to sign out properly",
+        variant: "destructive"
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -277,7 +163,14 @@ export default function Calendar() {
   useEffect(() => {
     // Clear previous errors
     setAuthError(null);
-    loadGoogleScript();
+    
+    // Check if user is authenticated with Google
+    if (isAuthenticated()) {
+      setIsAuthorized(true);
+      loadGoogleScript();
+    } else {
+      setIsAuthorized(false);
+    }
   }, []);
 
   const loadGoogleScript = () => {
@@ -323,37 +216,50 @@ export default function Calendar() {
       return;
     }
     
+    if (!GOOGLE_CLIENT_ID) {
+      setIsLoadingGoogleScript(false);
+      setAuthError("Client ID not configured. Please add a Client ID in the environment variables.");
+      toast({
+        title: "Configuration Error",
+        description: "Client ID not configured. Please add a Client ID in the environment variables.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     // Clear any previous errors
     setAuthError(null);
     
-    // Check if we already have tokens (from OAuth redirect)
-    const authTokensStr = localStorage.getItem('authTokens');
+    // Get the access token from localStorage
+    const tokens = localStorage.getItem('google_tokens');
     let accessToken = null;
     
-    if (authTokensStr) {
+    if (tokens) {
       try {
-        const authTokens = JSON.parse(authTokensStr);
-        if (authTokens.access_token) {
-          accessToken = authTokens.access_token;
+        const parsedTokens = JSON.parse(tokens);
+        if (parsedTokens.access_token) {
+          accessToken = parsedTokens.access_token;
           setIsAuthorized(true);
         } else {
           throw new Error("Invalid token format");
         }
       } catch (error) {
         console.error("Error parsing stored tokens");
-        localStorage.removeItem('authTokens');
+        localStorage.removeItem('google_tokens');
       }
     }
     
     // Initialize the client with the API key
     window.gapi.client.init({
       apiKey: GOOGLE_API_KEY,
+      clientId: GOOGLE_CLIENT_ID,
       discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
+      scope: 'https://www.googleapis.com/auth/calendar'
     }).then(() => {
       if (accessToken) {
-        window.gapi.client.setToken({
-          access_token: accessToken
-        });
+        // Simply set authorized state and proceed
+        setIsAuthorized(true);
+        // Test the connection by listing calendars
         return window.gapi.client.calendar.calendarList.list();
       } else {
         setIsAuthorized(false);
@@ -370,11 +276,10 @@ export default function Calendar() {
         fetchCalendarEvents();
       }
     }).catch(error => {
-      secureLogger.error('Error initializing Google client:', error);
+      console.error('Error initializing Google client:', error);
       setIsLoadingGoogleScript(false);
       setIsAuthorized(false);
       setAuthError("Could not initialize Google Calendar API");
-      localStorage.removeItem('authTokens');
       toast({
         title: "Authentication Error",
         description: "Please connect to Google Calendar",
@@ -383,6 +288,13 @@ export default function Calendar() {
     });
   };
 
+  // Auto-fetch events when authorized
+  useEffect(() => {
+    if (isAuthorized && !isLoadingGoogleScript) {
+      fetchCalendarEvents();
+    }
+  }, [isAuthorized, isLoadingGoogleScript]);
+
   const fetchCalendarEvents = async () => {
     if (!isAuthorized) {
       return;
@@ -390,16 +302,15 @@ export default function Calendar() {
 
     try {
       setIsLoadingEvents(true);
-      const response = await window.gapi.client.request({
-        path: `https://www.googleapis.com/calendar/v3/calendars/primary/events`,
-        params: {
-          timeMin: new Date().toISOString(),
-          timeMax: new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          showDeleted: false,
-          singleEvents: true,
-          maxResults: 50,
-          orderBy: "startTime"
-        }
+      // Use the calendar API directly instead of the request method
+      const response = await window.gapi.client.calendar.events.list({
+        calendarId: 'primary',
+        timeMin: new Date().toISOString(),
+        timeMax: new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        showDeleted: false,
+        singleEvents: true,
+        maxResults: 50,
+        orderBy: "startTime"
       });
 
       setCalendarEvents(response.result.items || []);
@@ -411,7 +322,7 @@ export default function Calendar() {
         });
       }
     } catch (error) {
-      secureLogger.error('Error fetching calendar events:', error);
+      console.error('Error fetching calendar events:', error);
       setAuthError("Failed to fetch calendar events");
       toast({
         title: "Error",
@@ -419,7 +330,7 @@ export default function Calendar() {
         variant: "destructive"
       });
       if (error.status === 401 || error.status === 403) {
-        localStorage.removeItem('authTokens');
+        localStorage.removeItem('google_tokens');
         setIsAuthorized(false);
       }
     } finally {
@@ -427,14 +338,7 @@ export default function Calendar() {
     }
   };
   
-  // Auto-fetch events when authorized
-  useEffect(() => {
-    if (isAuthorized && !isLoadingGoogleScript) {
-      fetchCalendarEvents();
-    }
-  }, [isAuthorized, isLoadingGoogleScript]);
-  
-  // Add event creation function using the simplified approach
+  // Add event creation function using the direct API call
   const createCalendarEvent = async (event: {
     summary: string;
     location?: string;
@@ -452,10 +356,9 @@ export default function Calendar() {
     }
     
     try {
-      const response = await window.gapi.client.request({
-        path: `https://www.googleapis.com/calendar/v3/calendars/primary/events`,
-        method: 'POST',
-        body: JSON.stringify(event)
+      const response = await window.gapi.client.calendar.events.insert({
+        calendarId: 'primary',
+        resource: event
       });
       
       console.log("Event created successfully:", response.result);
@@ -468,7 +371,7 @@ export default function Calendar() {
       fetchCalendarEvents();
       return response.result;
     } catch (error) {
-      secureLogger.error('Error loading Google API:', error);
+      console.error('Error creating event:', error);
       toast({
         title: "Error",
         description: "Failed to create event",
@@ -479,8 +382,7 @@ export default function Calendar() {
   };
 
   // Accept sessions as a parameter instead of fetching inside the function
-  // Accept sessions from state, not from a hook inside the function
-  const syncSessionsToGoogleCalendar = async (sessions: any[]) => {
+  const syncSessionsToGoogleCalendar = async (sessions: Session[]) => {
     if (!isAuthorized || !sessions || sessions.length === 0) {
       toast({
         title: "Sync Error",
@@ -490,17 +392,15 @@ export default function Calendar() {
     }
 
     try {
-      // Get existing events using the simplified approach
-      const response = await window.gapi.client.request({
-        path: `https://www.googleapis.com/calendar/v3/calendars/primary/events`,
-        params: {
-          timeMin: new Date().toISOString(),
-          showDeleted: false,
-          singleEvents: true,
-          maxResults: 100
-        }
+      // Get existing events using the direct API call
+      const response = await window.gapi.client.calendar.events.list({
+        calendarId: 'primary',
+        timeMin: new Date().toISOString(),
+        showDeleted: false,
+        singleEvents: true,
+        maxResults: 100
       });
-      
+
       const existingEvents = response.result.items;
       let syncCount = 0;
       let alreadySyncedCount = 0;
@@ -511,20 +411,19 @@ export default function Calendar() {
         );
         
         if (!eventExists) {
-          // Create event using the simplified approach
-          await window.gapi.client.request({
-            path: `https://www.googleapis.com/calendar/v3/calendars/primary/events`,
-            method: 'POST',
-            body: {
+          // Create event using the direct API call
+          await window.gapi.client.calendar.events.insert({
+            calendarId: 'primary',
+            resource: {
               summary: `Session with Patient ID: ${session.patientId}`,
-              description: `Session ID: ${session.id}\nLocation: ${session.location}`,
+              description: `Session ID: ${session.id}\nLocation: ${session.location || 'Not specified'}`,
               start: {
                 dateTime: new Date(session.date).toISOString(),
               },
               end: {
-                dateTime: new Date(new Date(session.date).getTime() + session.duration * 60000).toISOString(),
+                dateTime: new Date(new Date(session.date).getTime() + (session.duration || 60) * 60000).toISOString(),
               },
-              location: session.location,
+              location: session.location || 'Not specified',
             }
           });
           syncCount++;
@@ -538,7 +437,7 @@ export default function Calendar() {
         description: `Synced ${syncCount} new sessions to Google Calendar. ${alreadySyncedCount} sessions were already synced.`,
       });
     } catch (error: any) {
-      secureLogger.error('Error syncing sessions to Google Calendar:', error);
+      console.error('Error syncing sessions to Google Calendar:', error);
       toast({
         title: "Sync Error",
         description: "Failed to sync sessions: " + (error.message || "Unknown error"),
@@ -546,9 +445,157 @@ export default function Calendar() {
       });
       // If there's an authentication error, clear the tokens and reset auth state
       if (error.status === 401 || error.status === 403) {
-        localStorage.removeItem('authTokens');
+        localStorage.removeItem('google_tokens');
         setIsAuthorized(false);
       }
+    }
+  };
+
+  // Event handling functions
+  const handleAddEvent = async () => {
+    if (!isAuthorized) {
+      toast({
+        title: "Not Authorized",
+        description: "Please connect to Google Calendar first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Format the event data
+      const event = {
+        summary: eventTitle,
+        location: eventLocation,
+        description: eventDescription,
+        start: {
+          dateTime: eventStartDate.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        },
+        end: {
+          dateTime: eventEndDate.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        }
+      };
+      
+      // Create the event
+      const result = await createCalendarEvent(event);
+      
+      if (result) {
+        // Reset form fields
+        setEventTitle('');
+        setEventLocation('');
+        setEventDescription('');
+        setEventStartDate(new Date());
+        setEventEndDate(new Date(new Date().getTime() + 60 * 60 * 1000));
+        
+        // Close the dialog
+        setShowAddEventDialog(false);
+        
+        // Show success message
+        toast({
+          title: "Event Created",
+          description: "New event added to your Google Calendar"
+        });
+      }
+    } catch (error) {
+      console.error('Error creating event:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create event",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleEditEvent = async () => {
+    if (!isAuthorized || !selectedEvent) {
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Format the updated event data
+      const updatedEvent = {
+        summary: eventTitle,
+        location: eventLocation,
+        description: eventDescription,
+        start: {
+          dateTime: eventStartDate.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        },
+        end: {
+          dateTime: eventEndDate.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        }
+      };
+      
+      // Update the event
+      await window.gapi.client.calendar.events.update({
+        calendarId: 'primary',
+        eventId: selectedEvent.id,
+        resource: updatedEvent
+      });
+      
+      // Close the dialog and refresh events
+      setShowEditEventDialog(false);
+      fetchCalendarEvents();
+      
+      // Show success message
+      toast({
+        title: "Event Updated",
+        description: "Calendar event has been updated"
+      });
+    } catch (error) {
+      console.error('Error updating event:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update event",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleDeleteEvent = async () => {
+    if (!isAuthorized || !selectedEvent) {
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Delete the event
+      await window.gapi.client.calendar.events.delete({
+        calendarId: 'primary',
+        eventId: selectedEvent.id
+      });
+      
+      // Close the dialogs and refresh events
+      setShowDeleteConfirm(false);
+      setShowEditEventDialog(false);
+      fetchCalendarEvents();
+      
+      // Show success message
+      toast({
+        title: "Event Deleted",
+        description: "Calendar event has been removed"
+      });
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete event",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -776,7 +823,7 @@ export default function Calendar() {
                           <div key={event.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h3 className="font-semibold text-lg">{event.summary}</h3>
+                                <h3 className="font-semibold">{event.summary}</h3>
                                 <p className="text-sm text-muted-foreground">
                                   {format(new Date(event.start.dateTime), "PPP 'at' p")} - 
                                   {format(new Date(event.end.dateTime), " p")}
@@ -836,23 +883,7 @@ export default function Calendar() {
                 </DialogHeader>
                 <form onSubmit={(e) => {
                   e.preventDefault();
-                  createCalendarEvent({
-                    summary: eventTitle,
-                    location: eventLocation,
-                    description: eventDescription,
-                    start: {
-                      dateTime: eventStartDate.toISOString()
-                    },
-                    end: {
-                      dateTime: eventEndDate.toISOString()
-                    }
-                  });
-                  setShowAddEventDialog(false);
-                  setEventTitle('');
-                  setEventLocation('');
-                  setEventDescription('');
-                  setEventStartDate(new Date());
-                  setEventEndDate(new Date(new Date().getTime() + 60 * 60 * 1000));
+                  handleAddEvent();
                 }}>
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -979,46 +1010,7 @@ export default function Calendar() {
                   <Button variant="outline" onClick={() => setShowEditEventDialog(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={() => {
-                    if (!isAuthorized || !selectedEvent) return;
-                    
-                    const event = {
-                      summary: eventTitle,
-                      location: eventLocation,
-                      description: eventDescription,
-                      start: {
-                        dateTime: eventStartDate.toISOString(),
-                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                      },
-                      end: {
-                        dateTime: eventEndDate.toISOString(),
-                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                      }
-                    };
-                    
-                    setIsLoadingEvents(true);
-                    window.gapi.client.calendar.events.update({
-                      calendarId: 'primary',
-                      eventId: selectedEvent.id,
-                      resource: event
-                    }).then(() => {
-                      toast({
-                        title: "Event Updated",
-                        description: "Event has been updated in your calendar"
-                      });
-                      setShowEditEventDialog(false);
-                      fetchCalendarEvents();
-                    }).catch(error => {
-                      console.error("Error updating event:", error);
-                      toast({
-                        title: "Error",
-                        description: "Failed to update event: " + (error.message || "Unknown error"),
-                        variant: "destructive"
-                      });
-                    }).finally(() => {
-                      setIsLoadingEvents(false);
-                    });
-                  }}>
+                  <Button onClick={handleEditEvent}>
                     Update Event
                   </Button>
                 </DialogFooter>
@@ -1048,32 +1040,7 @@ export default function Calendar() {
                   <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
                     Cancel
                   </Button>
-                  <Button variant="destructive" onClick={() => {
-                    if (!isAuthorized || !selectedEvent) return;
-                    
-                    setIsLoadingEvents(true);
-                    window.gapi.client.calendar.events.delete({
-                      calendarId: 'primary',
-                      eventId: selectedEvent.id
-                    }).then(() => {
-                      toast({
-                        title: "Event Deleted",
-                        description: "Event has been removed from your calendar"
-                      });
-                      setShowDeleteConfirm(false);
-                      setSelectedEvent(null);
-                      fetchCalendarEvents();
-                    }).catch(error => {
-                      console.error("Error deleting event:", error);
-                      toast({
-                        title: "Error",
-                        description: "Failed to delete event: " + (error.message || "Unknown error"),
-                        variant: "destructive"
-                      });
-                    }).finally(() => {
-                      setIsLoadingEvents(false);
-                    });
-                  }}>
+                  <Button variant="destructive" onClick={handleDeleteEvent}>
                     Delete
                   </Button>
                 </DialogFooter>
