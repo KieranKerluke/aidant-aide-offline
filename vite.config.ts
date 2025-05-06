@@ -29,7 +29,8 @@ export default defineConfig(({ mode }) => ({
         'stream',
         'util',
         'buffer',
-        'events'
+        'events',
+        'querystring'
       ],
       // Override with custom polyfills
       globals: {
@@ -104,7 +105,6 @@ export default defineConfig(({ mode }) => ({
       // Preserve ESM modules
       preserveEntrySignatures: 'strict',
       external: [
-        'querystring'
       ],
       // Preserve dynamic imports for code-splitting
       output: {
