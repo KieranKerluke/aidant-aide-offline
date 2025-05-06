@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script>
+      // MINIMAL EARLY POLYFILL FOR isTTY - MUST BE ABSOLUTELY FIRST
+      if (typeof window !== 'undefined') {
+        window.process = window.process || {};
+        window.process.stdout = window.process.stdout || { isTTY: false, write: function() {}, columns: 80 };
+        window.process.stderr = window.process.stderr || { isTTY: false, write: function() {} };
+      }
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>aidant-aide-offline</title>
