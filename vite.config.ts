@@ -17,41 +17,29 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    // Improve build compatibility
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+    sourcemap: false,
+    minify: 'terser',
+    cssMinify: true,
+    // Reduce chunk size warnings
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
-      external: [
-        // Document generation libraries
-        'file-saver', 
-        'docx',
-        
-        // Radix UI components
-        '@radix-ui/react-tabs',
-        '@radix-ui/react-tooltip',
-        '@radix-ui/react-toggle',
-        '@radix-ui/react-toggle-group',
-        '@radix-ui/react-toast',
-        '@radix-ui/react-switch',
-        '@radix-ui/react-slider',
-        '@radix-ui/react-slot',
-        '@radix-ui/react-separator',
-        '@radix-ui/react-select',
-        '@radix-ui/react-scroll-area',
-        '@radix-ui/react-radio-group',
-        '@radix-ui/react-progress',
-        '@radix-ui/react-popover',
-        '@radix-ui/react-navigation-menu',
-        '@radix-ui/react-menubar',
-        '@radix-ui/react-label',
-        '@radix-ui/react-hover-card',
-        '@radix-ui/react-dropdown-menu',
-        '@radix-ui/react-dialog',
-        '@radix-ui/react-context-menu',
-        '@radix-ui/react-collapsible',
-        '@radix-ui/react-checkbox',
-        '@radix-ui/react-avatar',
-        '@radix-ui/react-aspect-ratio',
-        '@radix-ui/react-alert-dialog',
-        '@radix-ui/react-accordion'
-      ],
+      // Preserve dynamic imports for code-splitting
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            // Group Radix UI components together
+            if (id.includes('@radix-ui')) {
+              return 'vendor_radix';
+            }
+            // Group other vendor code
+            return 'vendor';
+          }
+        },
+      },
     },
   },
 }));
