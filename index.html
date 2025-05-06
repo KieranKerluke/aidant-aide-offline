@@ -18,7 +18,44 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Fallback content that will show if JS fails to load -->
+      <div id="loading-fallback" style="text-align: center; padding: 2rem;">
+        <h2>Loading PairAidant...</h2>
+        <p>If this message persists, there may be a problem loading the application.</p>
+      </div>
+    </div>
+    
+    <!-- Error handling script -->
+    <script>
+      window.addEventListener('error', function(event) {
+        console.error('Global error:', event.error || event.message);
+        const errorMsg = document.createElement('div');
+        errorMsg.style.backgroundColor = '#ffebee';
+        errorMsg.style.color = '#c62828';
+        errorMsg.style.padding = '1rem';
+        errorMsg.style.margin = '1rem';
+        errorMsg.style.borderRadius = '4px';
+        errorMsg.style.border = '1px solid #ef9a9a';
+        errorMsg.innerHTML = `<h3>Error Detected</h3><p>${event.message || 'Unknown error'}</p>`;
+        
+        const root = document.getElementById('root');
+        if (root && root.childElementCount === 1 && root.firstElementChild.id === 'loading-fallback') {
+          root.appendChild(errorMsg);
+        }
+      });
+      
+      // Remove loading message when app initializes
+      window.addEventListener('load', function() {
+        setTimeout(() => {
+          const loadingEl = document.getElementById('loading-fallback');
+          if (loadingEl && loadingEl.parentNode) {
+            loadingEl.parentNode.removeChild(loadingEl);
+          }
+        }, 1000); // Small delay to ensure React has time to render
+      });
+    </script>
+    
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
