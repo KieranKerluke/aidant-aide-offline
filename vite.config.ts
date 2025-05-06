@@ -37,36 +37,6 @@ export default defineConfig(({ mode }) => ({
         process: true
       },
     }),
-    // Inject process polyfill with stdout/stderr stubs
-    {
-      name: 'process-polyfill-enhancer',
-      transformIndexHtml(html) {
-        return {
-          html,
-          tags: [
-            {
-              tag: 'script',
-              attrs: { type: 'module' },
-              children: `
-                // Enhance process polyfill with TTY properties
-                if (window.process && !window.process.stdout) {
-                  window.process.stdout = { 
-                    isTTY: false,
-                    write: () => {},
-                    columns: 80
-                  };
-                  window.process.stderr = { 
-                    isTTY: false,
-                    write: () => {} 
-                  };
-                }
-              `,
-              injectTo: 'head'
-            }
-          ]
-        };
-      }
-    },
   ],
   optimizeDeps: {
     include: ['react-hook-form', '@hookform/resolvers/zod', 'zod'],
@@ -100,7 +70,6 @@ export default defineConfig(({ mode }) => ({
       // Add the polyfill as an entry point
       input: {
         main: path.resolve(__dirname, 'index.html'),
-        polyfill: path.resolve(__dirname, 'src/lib/google-polyfill-entry.js')
       },
       // Preserve ESM modules
       preserveEntrySignatures: 'strict',
