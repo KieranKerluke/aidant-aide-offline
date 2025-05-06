@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => ({
     // Reduce chunk size warnings
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
+      external: ['react-hook-form'],
       // Preserve dynamic imports for code-splitting
       output: {
         manualChunks: (id) => {
@@ -34,6 +35,10 @@ export default defineConfig(({ mode }) => ({
             // Group Radix UI components together
             if (id.includes('@radix-ui')) {
               return 'vendor_radix';
+            }
+            // Group form-related packages
+            if (id.includes('react-hook-form')) {
+              return 'vendor_forms';
             }
             // Group other vendor code
             return 'vendor';
