@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     rollupOptions: {
-      external: ['file-saver'],
+      external: ['file-saver', 'docx'],
     },
   },
 }));
