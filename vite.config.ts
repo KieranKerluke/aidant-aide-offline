@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import path from "path";
 
 // https://vitejs.dev/config/
@@ -10,6 +11,25 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
+    nodePolyfills({
+      // Whether to polyfill `node:` protocol imports.
+      protocolImports: true,
+      // Add these specific polyfills to fix deployment issues
+      include: [
+        'crypto',
+        'net',
+        'http',
+        'https',
+        'http2',
+        'zlib',
+        'url',
+        'process',
+        'stream',
+        'util',
+        'buffer',
+        'events'
+      ],
+    }),
   ],
   resolve: {
     alias: {
