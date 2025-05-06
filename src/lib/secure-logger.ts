@@ -112,7 +112,7 @@ interface LoggerConfig {
 // Default configuration
 const defaultConfig: LoggerConfig = {
   level: LogLevel.INFO,
-  environment: process.env.NODE_ENV || 'development',
+  environment: import.meta.env.MODE || 'development',
   service: 'aidant-aide'
 };
 
