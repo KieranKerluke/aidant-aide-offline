@@ -34,6 +34,9 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Add explicit aliases for problematic packages
+      'react-hook-form': path.resolve(__dirname, 'node_modules/react-hook-form/dist/index.esm.mjs'),
+      '@hookform/resolvers': path.resolve(__dirname, 'node_modules/@hookform/resolvers/dist/index.esm.js')
     },
   },
   build: {
