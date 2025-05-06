@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import commonjs from 'vite-plugin-commonjs'
 import path from "path";
 
 // https://vitejs.dev/config/
@@ -11,6 +12,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
+    commonjs(),
     nodePolyfills({
       // Whether to polyfill `node:` protocol imports.
       protocolImports: true,
@@ -51,7 +53,10 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1000,
     // Set a more permissive input option to handle edge cases
     write: true,
+    // Fix ESM modules in production
     rollupOptions: {
+      // Preserve ESM modules
+      preserveEntrySignatures: 'strict',
       external: [
         // Form-related packages
         'react-hook-form',

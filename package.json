@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "browser": {
+    "react-hook-form": "./node_modules/react-hook-form/dist/index.esm.mjs",
+    "@hookform/resolvers/zod": "./node_modules/@hookform/resolvers/dist/zod.mjs"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
@@ -83,6 +87,7 @@
     "tailwindcss": "^3.3.5",
     "typescript": "^5.3.3",
     "vite": "^6.3.5",
+    "vite-plugin-commonjs": "^0.10.4",
     "vite-plugin-node-polyfills": "^0.23.0"
   }
 }
