@@ -2,12 +2,52 @@
 <html lang="en">
   <head>
     <script>
-      // MINIMAL EARLY POLYFILL FOR isTTY - MUST BE ABSOLUTELY FIRST
-      if (typeof window !== 'undefined') {
-        window.process = window.process || {};
-        window.process.stdout = window.process.stdout || { isTTY: false, write: function() {}, columns: 80 };
-        window.process.stderr = window.process.stderr || { isTTY: false, write: function() {} };
-      }
+      // ENHANCED POLYFILL FOR NODE.JS PROCESS IN BROWSER
+      (function() {
+        if (typeof window !== 'undefined') {
+          // Initialize process if it doesn't exist
+          window.process = window.process || {};
+          
+          // Ensure stdout exists and has all required properties
+          window.process.stdout = window.process.stdout || {};
+          Object.assign(window.process.stdout, {
+            isTTY: false,
+            write: function() {},
+            columns: 80,
+            getColorDepth: function() { return 24; },
+            hasColors: function() { return false; }
+          });
+          
+          // Ensure stderr exists and has all required properties
+          window.process.stderr = window.process.stderr || {};
+          Object.assign(window.process.stderr, {
+            isTTY: false,
+            write: function() {},
+            getColorDepth: function() { return 24; },
+            hasColors: function() { return false; }
+          });
+          
+          // Add other commonly used process properties
+          window.process.env = window.process.env || {
+            NODE_ENV: 'production',
+            DEBUG: '',
+            GOOGLE_SDK_NODE_LOGGING: false
+          };
+          
+          // Ensure process.version exists
+          window.process.version = window.process.version || 'v16.0.0';
+          
+          // Make process non-configurable to prevent accidental deletion
+          try {
+            Object.defineProperty(window, 'process', {
+              configurable: false,
+              writable: false
+            });
+          } catch (e) {
+            console.warn('Could not make process non-configurable:', e);
+          }
+        }
+      })();
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
