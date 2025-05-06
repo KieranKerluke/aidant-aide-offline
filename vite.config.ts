@@ -104,11 +104,6 @@ export default defineConfig(({ mode }) => ({
       // Preserve ESM modules
       preserveEntrySignatures: 'strict',
       external: [
-        // Node polyfills that might cause issues
-        'events',
-        'stream',
-        'util',
-        'buffer',
         'querystring'
       ],
       // Preserve dynamic imports for code-splitting
