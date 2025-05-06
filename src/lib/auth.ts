@@ -4,7 +4,7 @@ import { OAuth2Client } from 'google-auth-library';
 export const oauth2Client = new OAuth2Client(
   import.meta.env.VITE_GOOGLE_CLIENT_ID,
   import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-  'https://creative-kleicha-a0928a.netlify.app/oauth2callback'
+  import.meta.env.VITE_GOOGLE_REDIRECT_URI
 );
 
 // Get the authorization URL
