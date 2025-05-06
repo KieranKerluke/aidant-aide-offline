@@ -1,3 +1,6 @@
+// Import polyfill before any Google SDK imports
+import './google-sdk-polyfill';
+
 import { OAuth2Client } from 'google-auth-library';
 
 // Initialize the OAuth2 client

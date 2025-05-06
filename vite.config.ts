@@ -31,15 +31,56 @@ export default defineConfig(({ mode }) => ({
         'buffer',
         'events'
       ],
+      // Override with custom polyfills
+      globals: {
+        process: true
+      },
     }),
+    // Inject process polyfill with stdout/stderr stubs
+    {
+      name: 'process-polyfill-enhancer',
+      transformIndexHtml(html) {
+        return {
+          html,
+          tags: [
+            {
+              tag: 'script',
+              attrs: { type: 'module' },
+              children: `
+                // Enhance process polyfill with TTY properties
+                if (window.process && !window.process.stdout) {
+                  window.process.stdout = { 
+                    isTTY: false,
+                    write: () => {},
+                    columns: 80
+                  };
+                  window.process.stderr = { 
+                    isTTY: false,
+                    write: () => {} 
+                  };
+                }
+              `,
+              injectTo: 'head'
+            }
+          ]
+        };
+      }
+    },
   ],
+  optimizeDeps: {
+    include: ['react-hook-form', '@hookform/resolvers/zod', 'zod'],
+    esbuildOptions: {
+      target: 'es2020',
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      // Add explicit aliases for problematic packages
-      'react-hook-form': path.resolve(__dirname, 'node_modules/react-hook-form/dist/index.esm.mjs'),
-      '@hookform/resolvers': path.resolve(__dirname, 'node_modules/@hookform/resolvers/dist/index.esm.js')
     },
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
+  },
+  define: {
+    'process.env': JSON.stringify({ GOOGLE_SDK_NODE_LOGGING: false }),
   },
   build: {
     // Improve build compatibility
@@ -55,18 +96,14 @@ export default defineConfig(({ mode }) => ({
     write: true,
     // Fix ESM modules in production
     rollupOptions: {
+      // Add the polyfill as an entry point
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        polyfill: path.resolve(__dirname, 'src/lib/google-polyfill-entry.js')
+      },
       // Preserve ESM modules
       preserveEntrySignatures: 'strict',
       external: [
-        // Form-related packages
-        'react-hook-form',
-        '@hookform/resolvers/zod',
-        'zod',
-        
-        // Document generation libraries
-        'file-saver', 
-        'docx',
-        
         // Node polyfills that might cause issues
         'events',
         'stream',

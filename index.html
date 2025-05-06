@@ -1,6 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- Google SDK Browser Polyfill - Must be first script in page -->
+    <script>
+      (function() {
+        // Ensure process and env exist before any modules load
+        window.process = window.process || {};
+        window.process.env = window.process.env || {};
+        
+        // Set Google SDK environment variables
+        window.process.env.GOOGLE_SDK_NODE_LOGGING = false;
+        window.process.env.NODE_ENV = "production";
+        window.process.env.DEBUG = "";
+        
+        // Create stdout and stderr with isTTY properties
+        window.process.stdout = { isTTY: false, write: function() {}, columns: 80 };
+        window.process.stderr = { isTTY: false, write: function() {} };
+        
+        // Make global available
+        window.global = window;
+        
+        console.log("Google SDK browser polyfill initialized");
+      })();
+    </script>
+    
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>aidant-aide-offline</title>
