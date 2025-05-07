@@ -1,5 +1,5 @@
-// Import process polyfill for other Node.js features
-import './process-polyfill'
+// Import enhanced process polyfill
+import './process-polyfill-fix'
 
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'

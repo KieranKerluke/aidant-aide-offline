@@ -1,5 +1,5 @@
-// Import polyfill before any Google SDK imports
-import './google-sdk-polyfill';
+// Import enhanced process polyfill before any Google SDK imports
+import '../process-polyfill-fix';
 
 import { OAuth2Client } from 'google-auth-library';
 
