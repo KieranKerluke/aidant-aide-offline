@@ -1,3 +1,6 @@
+// Import the Google API patch first to fix GOOGLE_SDK_NODE_LOGGING error
+import './google-api-patch.js';
+
 // Process polyfill is now handled directly in index.html
 
 import { createRoot } from 'react-dom/client';
