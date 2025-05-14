@@ -1,8 +1,44 @@
-import { defineConfig } from "vite";
+import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import commonjs from 'vite-plugin-commonjs'
 import path from "path";
+
+// Custom plugin to inject process polyfill at the beginning of the bundle
+function processPolyfillPlugin(): Plugin {
+  const processPolyfill = `
+    // Process polyfill for isTTY error
+    (function() {
+      if (typeof window !== 'undefined') {
+        window.process = window.process || {};
+        window.process.stdout = window.process.stdout || {};
+        window.process.stdout.isTTY = false;
+        window.process.stderr = window.process.stderr || {};
+        window.process.stderr.isTTY = false;
+        window.process.env = window.process.env || {};
+        window.global = window;
+      }
+    })();
+  `;
+
+  return {
+    name: 'vite-plugin-process-polyfill',
+    enforce: 'pre',
+    transformIndexHtml(html) {
+      return html.replace(
+        '<head>',
+        `<head>\n<script>${processPolyfill}</script>`
+      );
+    },
+    renderChunk(code, chunk) {
+      // Only inject in entry chunks
+      if (chunk.isEntry) {
+        return processPolyfill + code;
+      }
+      return code;
+    }
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -11,6 +47,8 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [
+    // Add our custom process polyfill plugin first to ensure it runs before other plugins
+    processPolyfillPlugin(),
     react(),
     commonjs(),
     nodePolyfills({
@@ -52,6 +90,11 @@ export default defineConfig(({ mode }) => ({
   },
   define: {
     'process.env': JSON.stringify({ GOOGLE_SDK_NODE_LOGGING: false }),
+    // Define process.stdout and process.stderr to fix isTTY error
+    'process.stdout': JSON.stringify({ isTTY: false }),
+    'process.stderr': JSON.stringify({ isTTY: false }),
+    // Ensure global is defined
+    'global': 'window',
   },
   build: {
     // Improve build compatibility
