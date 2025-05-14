@@ -7,15 +7,25 @@ import path from "path";
 // Custom plugin to inject process polyfill at the beginning of the bundle
 function processPolyfillPlugin(): Plugin {
   const processPolyfill = `
-    // Process polyfill for isTTY error
+    // Process polyfill for isTTY error and Google SDK
     (function() {
       if (typeof window !== 'undefined') {
+        // Ensure process exists
         window.process = window.process || {};
+        
+        // Set up stdout and stderr
         window.process.stdout = window.process.stdout || {};
         window.process.stdout.isTTY = false;
         window.process.stderr = window.process.stderr || {};
         window.process.stderr.isTTY = false;
+        
+        // Set up process.env with required Google SDK properties
         window.process.env = window.process.env || {};
+        window.process.env.GOOGLE_SDK_NODE_LOGGING = false;
+        window.process.env.NODE_ENV = window.process.env.NODE_ENV || 'production';
+        window.process.env.DEBUG = window.process.env.DEBUG || '';
+        
+        // Ensure global is defined
         window.global = window;
       }
     })();
@@ -89,7 +99,15 @@ export default defineConfig(({ mode }) => ({
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
   },
   define: {
-    'process.env': JSON.stringify({ GOOGLE_SDK_NODE_LOGGING: false }),
+    // Define process.env with all necessary properties for Google APIs
+    'process.env': JSON.stringify({
+      GOOGLE_SDK_NODE_LOGGING: false,
+      NODE_ENV: process.env.NODE_ENV || 'production',
+      DEBUG: '',
+      GOOGLE_APPLICATION_CREDENTIALS: '',
+      GOOGLE_CLOUD_PROJECT: '',
+      GOOGLE_CLOUD_REGION: ''
+    }),
     // Define process.stdout and process.stderr to fix isTTY error
     'process.stdout': JSON.stringify({ isTTY: false }),
     'process.stderr': JSON.stringify({ isTTY: false }),

@@ -93,11 +93,14 @@
             clearScreenDown: function() { return true; }
           };
           
-          // Create env with defaults
+          // Create env with defaults - IMPORTANT: Include GOOGLE_SDK_NODE_LOGGING
           var envPolyfill = {
             NODE_ENV: 'production',
             DEBUG: '',
-            GOOGLE_SDK_NODE_LOGGING: false
+            GOOGLE_SDK_NODE_LOGGING: false,
+            GOOGLE_APPLICATION_CREDENTIALS: '',
+            GOOGLE_CLOUD_PROJECT: '',
+            GOOGLE_CLOUD_REGION: ''
           };
           
           // Set up the complete process object
@@ -126,8 +129,11 @@
             }
           }
           
-          // Set up env
+          // Set up env - CRITICAL: Directly set GOOGLE_SDK_NODE_LOGGING
           window.process.env = window.process.env || {};
+          window.process.env.GOOGLE_SDK_NODE_LOGGING = false;
+          
+          // Copy other env properties
           for (var key in envPolyfill) {
             if (envPolyfill.hasOwnProperty(key) && window.process.env[key] === undefined) {
               window.process.env[key] = envPolyfill[key];
@@ -146,7 +152,7 @@
             allocUnsafeSlow: function(size) { return new Uint8Array(size); }
           };
           
-          console.log('Complete process polyfill loaded');
+          console.log('Complete process polyfill loaded with GOOGLE_SDK_NODE_LOGGING');
         }
       })();
     </script>
