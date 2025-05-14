@@ -1,9 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <!-- Load the process polyfill first, before any other scripts -->
+    <!-- Inline process polyfill to ensure it's loaded first -->
+    <script>
+      (function() {
+        // Define process object directly
+        window.process = window.process || {};
+        
+        // Ensure stdout and stderr exist with isTTY property
+        window.process.stdout = window.process.stdout || {};
+        window.process.stdout.isTTY = false;
+        window.process.stdout.write = function() { return true; };
+        
+        window.process.stderr = window.process.stderr || {};
+        window.process.stderr.isTTY = false;
+        window.process.stderr.write = function() { return true; };
+        
+        // Ensure env exists
+        window.process.env = window.process.env || {};
+        window.process.env.NODE_ENV = window.process.env.NODE_ENV || 'production';
+        
+        // Ensure global is defined
+        window.global = window;
+        
+        // Basic Buffer polyfill
+        window.Buffer = window.Buffer || {
+          isBuffer: function() { return false; },
+          from: function(data) { return data; },
+          alloc: function(size) { return new Uint8Array(size); },
+          allocUnsafe: function(size) { return new Uint8Array(size); }
+        };
+        
+        console.log('Inline process polyfill loaded');
+      })();
+    </script>
+    <!-- Also keep the external polyfill for more complete functionality -->
     <script src="/src/process-polyfill-fix.js"></script>
-    <!-- Removed inline polyfill script as it's now handled by process-polyfill-fix.js -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>aidant-aide-offline</title>

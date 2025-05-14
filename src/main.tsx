@@ -1,12 +1,15 @@
-// Import enhanced process polyfill
-import './process-polyfill-fix'
+// Import the process TTY fix first to ensure isTTY is properly defined
+import './process-tty-fix.js';
 
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
-import { initEnvValidation } from './lib/env-validator'
-import { enableSecureConsoleInDevelopment } from './lib/secure-logger'
-import ErrorBoundary from './components/ErrorBoundary'
+// Import enhanced process polyfill for additional functionality
+import './process-polyfill-fix';
+
+import { createRoot } from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+import { initEnvValidation } from './lib/env-validator';
+import { enableSecureConsoleInDevelopment } from './lib/secure-logger';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Run security validation on startup
 initEnvValidation();
