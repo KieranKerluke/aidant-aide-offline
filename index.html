@@ -194,6 +194,11 @@
   </head>
 
   <body>
+    <!-- Load Google API fix script before anything else -->
+    <script src="/google-api-fix.js"></script>
+    <!-- Load vendor patch script for last-resort fix -->
+    <script src="/vendor-patch.js"></script>
+    
     <div id="root">
       <!-- Fallback content that will show if JS fails to load -->
       <div id="loading-fallback" style="text-align: center; padding: 2rem;">
