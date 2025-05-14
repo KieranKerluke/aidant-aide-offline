@@ -1,8 +1,4 @@
-// Import the process TTY fix first to ensure isTTY is properly defined
-import './process-tty-fix.js';
-
-// Import enhanced process polyfill for additional functionality
-import './process-polyfill-fix';
+// Process polyfill is now handled directly in index.html
 
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
