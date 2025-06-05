@@ -1,34 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <!-- CRITICAL: Early Process Polyfill - Must be first script in document -->
+    <!-- ULTRA CRITICAL: Immediate inline fix for GOOGLE_SDK_NODE_LOGGING -->
+    <script>
+      // This must be the very first script to execute
+      window.__GOOGLE_SDK_NODE_LOGGING = false;
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      window.process.env.GOOGLE_SDK_NODE_LOGGING = false;
+      
+      // Make sure the property exists and is enumerable
+      Object.defineProperty(window.process.env, 'GOOGLE_SDK_NODE_LOGGING', {
+        value: false,
+        writable: true,
+        enumerable: true,
+        configurable: true
+      });
+    </script>
+    
+    <!-- CRITICAL: Early Process Polyfill - Must be first external script -->
     <script src="/early-polyfill.js"></script>
     
-    <!-- CRITICAL FIX: Direct definition of GOOGLE_SDK_NODE_LOGGING before anything else loads -->
-    <script>
-      // Define this globally so it's available to all scripts
-      window.__GOOGLE_SDK_NODE_LOGGING = false;
-      
-      // Also define it on process.env for any code that checks there
-      if (typeof window !== 'undefined') {
-        window.process = window.process || {};
-        window.process.env = window.process.env || {};
-        window.process.env.GOOGLE_SDK_NODE_LOGGING = false;
-        
-        // Add a try-catch wrapper to the original Error constructor to catch and fix the specific error
-        var originalError = Error;
-        window.Error = function(message) {
-          if (message && typeof message === 'string' && message.includes('GOOGLE_SDK_NODE_LOGGING')) {
-            console.log('Prevented error about GOOGLE_SDK_NODE_LOGGING');
-            return new originalError('Error suppressed');
-          }
-          return new originalError(...arguments);
-        };
-        window.Error.prototype = originalError.prototype;
-        
-        console.log('Direct GOOGLE_SDK_NODE_LOGGING fix applied');
-      }
-    </script>
     
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
