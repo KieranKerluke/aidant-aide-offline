@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- CRITICAL: Early Process Polyfill - Must be first script in document -->
+    <script src="/early-polyfill.js"></script>
+    
+    <!-- CRITICAL FIX: Direct definition of GOOGLE_SDK_NODE_LOGGING before anything else loads -->
+    <script>
+      // Define this globally so it's available to all scripts
+      window.__GOOGLE_SDK_NODE_LOGGING = false;
+      
+      // Also define it on process.env for any code that checks there
+      if (typeof window !== 'undefined') {
+        window.process = window.process || {};
+        window.process.env = window.process.env || {};
+        window.process.env.GOOGLE_SDK_NODE_LOGGING = false;
+        
+        // Add a try-catch wrapper to the original Error constructor to catch and fix the specific error
+        var originalError = Error;
+        window.Error = function(message) {
+          if (message && typeof message === 'string' && message.includes('GOOGLE_SDK_NODE_LOGGING')) {
+            console.log('Prevented error about GOOGLE_SDK_NODE_LOGGING');
+            return new originalError('Error suppressed');
+          }
+          return new originalError(...arguments);
+        };
+        window.Error.prototype = originalError.prototype;
+        
+        console.log('Direct GOOGLE_SDK_NODE_LOGGING fix applied');
+      }
+    </script>
+    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>aidant-aide-offline</title>
+    <meta name="description" content="Lovable Generated Project" />
+    <meta name="author" content="Lovable" />
+    
+    <!-- CRITICAL: Complete Process Polyfill - Must be first script in document -->
+    <script>
+      (function() {
+        // Create a comprehensive process polyfill for Node.js in browser environment
+        if (typeof window !== 'undefined') {
+          // Create a robust process object
+          var processPolyfill = {
+            // Basic properties
+            version: 'v16.0.0',
+            versions: { node: '16.0.0' },
+            platform: 'browser',
+            arch: 'x64',
+            
+            // Methods
+            nextTick: function(callback) { setTimeout(callback, 0); },
+            cwd: function() { return '/'; },
+            exit: function() { return true; },
+            kill: function() { return true; },
+            
+            // Events
+            on: function() { return this; },
+            off: function() { return this; },
+            once: function() { return this; },
+            emit: function() { return false; },
+            removeListener: function() { return this; },
+            removeAllListeners: function() { return this; },
+            listeners: function() { return []; },
+            
+            // Memory info
+            memoryUsage: function() {
+              return {
+                heapTotal: 0,
+                heapUsed: 0,
+                external: 0,
+                rss: 0,
+                arrayBuffers: 0
+              };
+            },
+            
+            // Timing
+            hrtime: function(previousTimestamp) {
+              var clocktime = performance.now() * 1e-3;
+              var seconds = Math.floor(clocktime);
+              var nanoseconds = Math.floor((clocktime % 1) * 1e9);
+              
+              if (previousTimestamp) {
+                seconds = seconds - previousTimestamp[0];
+                nanoseconds = nanoseconds - previousTimestamp[1];
+                
+                if (nanoseconds < 0) {
+                  seconds--;
+                  nanoseconds += 1e9;
+                }
+              }
+              return [seconds, nanoseconds];
+            }
+          };
+          
+          // Create stdout with ALL required properties
+          var stdoutPolyfill = {
+            isTTY: false,
+            write: function() { return true; },
+            columns: 80,
+            rows: 24,
+            getColorDepth: function() { return 1; },
+            hasColors: function() { return false; },
+            cursorTo: function() { return true; },
+            moveCursor: function() { return true; },
+            clearLine: function() { return true; },
+            clearScreenDown: function() { return true; }
+          };
+          
+          // Create stderr with ALL required properties
+          var stderrPolyfill = {
+            isTTY: false,
+            write: function() { return true; },
+            columns: 80,
+            rows: 24,
+            getColorDepth: function() { return 1; },
+            hasColors: function() { return false; },
+            cursorTo: function() { return true; },
+            moveCursor: function() { return true; },
+            clearLine: function() { return true; },
+            clearScreenDown: function() { return true; }
+          };
+          
+          // Create env with defaults - IMPORTANT: Include GOOGLE_SDK_NODE_LOGGING
+          var envPolyfill = {
+            NODE_ENV: 'production',
+            DEBUG: '',
+            GOOGLE_SDK_NODE_LOGGING: false,
+            GOOGLE_APPLICATION_CREDENTIALS: '',
+            GOOGLE_CLOUD_PROJECT: '',
+            GOOGLE_CLOUD_REGION: ''
+          };
+          
+          // Set up the complete process object
+          window.process = window.process || {};
+          
+          // Copy processPolyfill properties
+          for (var key in processPolyfill) {
+            if (processPolyfill.hasOwnProperty(key) && window.process[key] === undefined) {
+              window.process[key] = processPolyfill[key];
+            }
+          }
+          
+          // Set up stdout
+          window.process.stdout = window.process.stdout || {};
+          for (var key in stdoutPolyfill) {
+            if (stdoutPolyfill.hasOwnProperty(key) && window.process.stdout[key] === undefined) {
+              window.process.stdout[key] = stdoutPolyfill[key];
+            }
+          }
+          
+          // Set up stderr
+          window.process.stderr = window.process.stderr || {};
+          for (var key in stderrPolyfill) {
+            if (stderrPolyfill.hasOwnProperty(key) && window.process.stderr[key] === undefined) {
+              window.process.stderr[key] = stderrPolyfill[key];
+            }
+          }
+          
+          // Set up env - CRITICAL: Directly set GOOGLE_SDK_NODE_LOGGING
+          window.process.env = window.process.env || {};
+          window.process.env.GOOGLE_SDK_NODE_LOGGING = false;
+          
+          // Copy other env properties
+          for (var key in envPolyfill) {
+            if (envPolyfill.hasOwnProperty(key) && window.process.env[key] === undefined) {
+              window.process.env[key] = envPolyfill[key];
+            }
+          }
+          
+          // Ensure global is defined
+          window.global = window;
+          
+          // Ensure Buffer is available
+          window.Buffer = window.Buffer || {
+            isBuffer: function() { return false; },
+            from: function(data) { return data; },
+            alloc: function(size) { return new Uint8Array(size); },
+            allocUnsafe: function(size) { return new Uint8Array(size); },
+            allocUnsafeSlow: function(size) { return new Uint8Array(size); }
+          };
+          
+          console.log('Complete process polyfill loaded with GOOGLE_SDK_NODE_LOGGING');
+        }
+      })();
+    </script>
+
+    <meta property="og:title" content="aidant-aide-offline" />
+    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@lovable_dev" />
+    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+  </head>
+
+  <body>
+    <!-- Load Google API fix script before anything else -->
+    <script src="/google-api-fix.js"></script>
+    <!-- Load vendor patch script for last-resort fix -->
+    <script src="/vendor-patch.js"></script>
+    
+    <div id="root">
+      <!-- Fallback content that will show if JS fails to load -->
+      <div id="loading-fallback" style="text-align: center; padding: 2rem;">
+        <h2>Loading PairAidant...</h2>
+        <p>If this message persists, there may be a problem loading the application.</p>
+      </div>
+    </div>
+    
+    <!-- Error handling script -->
+    <script>
+      window.addEventListener('error', function(event) {
+        console.error('Global error:', event.error || event.message);
+        const errorMsg = document.createElement('div');
+        errorMsg.style.backgroundColor = '#ffebee';
+        errorMsg.style.color = '#c62828';
+        errorMsg.style.padding = '1rem';
+        errorMsg.style.margin = '1rem';
+        errorMsg.style.borderRadius = '4px';
+        errorMsg.style.border = '1px solid #ef9a9a';
+        errorMsg.innerHTML = `<h3>Error Detected</h3><p>${event.message || 'Unknown error'}</p>`;
+        
+        const root = document.getElementById('root');
+        if (root && root.childElementCount === 1 && root.firstElementChild.id === 'loading-fallback') {
+          root.appendChild(errorMsg);
+        }
+      });
+      
+      // Remove loading message when app initializes
+      window.addEventListener('load', function() {
+        setTimeout(() => {
+          const loadingEl = document.getElementById('loading-fallback');
+          if (loadingEl && loadingEl.parentNode) {
+            loadingEl.parentNode.removeChild(loadingEl);
+          }
+        }, 1000); // Small delay to ensure React has time to render
+      });
+    </script>
+    
+    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
+    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

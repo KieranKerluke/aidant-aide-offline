@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "react-hook-form": "./node_modules/react-hook-form/dist/index.esm.mjs",
+    "@hookform/resolvers/zod": "./node_modules/@hookform/resolvers/dist/zod.mjs"
+  }
+}
