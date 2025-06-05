@@ -30,151 +30,34 @@
     
     <!-- CRITICAL: Complete Process Polyfill - Must be first script in document -->
     <script>
+      // ULTRA CRITICAL: Bulletproof process.env polyfill for GOOGLE_SDK_NODE_LOGGING
       (function() {
-        // Create a comprehensive process polyfill for Node.js in browser environment
-        if (typeof window !== 'undefined') {
-          // Create a robust process object
-          var processPolyfill = {
-            // Basic properties
-            version: 'v16.0.0',
-            versions: { node: '16.0.0' },
-            platform: 'browser',
-            arch: 'x64',
-            
-            // Methods
-            nextTick: function(callback) { setTimeout(callback, 0); },
-            cwd: function() { return '/'; },
-            exit: function() { return true; },
-            kill: function() { return true; },
-            
-            // Events
-            on: function() { return this; },
-            off: function() { return this; },
-            once: function() { return this; },
-            emit: function() { return false; },
-            removeListener: function() { return this; },
-            removeAllListeners: function() { return this; },
-            listeners: function() { return []; },
-            
-            // Memory info
-            memoryUsage: function() {
-              return {
-                heapTotal: 0,
-                heapUsed: 0,
-                external: 0,
-                rss: 0,
-                arrayBuffers: 0
-              };
-            },
-            
-            // Timing
-            hrtime: function(previousTimestamp) {
-              var clocktime = performance.now() * 1e-3;
-              var seconds = Math.floor(clocktime);
-              var nanoseconds = Math.floor((clocktime % 1) * 1e9);
-              
-              if (previousTimestamp) {
-                seconds = seconds - previousTimestamp[0];
-                nanoseconds = nanoseconds - previousTimestamp[1];
-                
-                if (nanoseconds < 0) {
-                  seconds--;
-                  nanoseconds += 1e9;
-                }
-              }
-              return [seconds, nanoseconds];
-            }
-          };
-          
-          // Create stdout with ALL required properties
-          var stdoutPolyfill = {
-            isTTY: false,
-            write: function() { return true; },
-            columns: 80,
-            rows: 24,
-            getColorDepth: function() { return 1; },
-            hasColors: function() { return false; },
-            cursorTo: function() { return true; },
-            moveCursor: function() { return true; },
-            clearLine: function() { return true; },
-            clearScreenDown: function() { return true; }
-          };
-          
-          // Create stderr with ALL required properties
-          var stderrPolyfill = {
-            isTTY: false,
-            write: function() { return true; },
-            columns: 80,
-            rows: 24,
-            getColorDepth: function() { return 1; },
-            hasColors: function() { return false; },
-            cursorTo: function() { return true; },
-            moveCursor: function() { return true; },
-            clearLine: function() { return true; },
-            clearScreenDown: function() { return true; }
-          };
-          
-          // Create env with defaults - IMPORTANT: Include GOOGLE_SDK_NODE_LOGGING
-          var envPolyfill = {
-            NODE_ENV: 'production',
-            DEBUG: '',
-            GOOGLE_SDK_NODE_LOGGING: false,
-            GOOGLE_APPLICATION_CREDENTIALS: '',
-            GOOGLE_CLOUD_PROJECT: '',
-            GOOGLE_CLOUD_REGION: ''
-          };
-          
-          // Set up the complete process object
-          window.process = window.process || {};
-          
-          // Copy processPolyfill properties
-          for (var key in processPolyfill) {
-            if (processPolyfill.hasOwnProperty(key) && window.process[key] === undefined) {
-              window.process[key] = processPolyfill[key];
-            }
-          }
-          
-          // Set up stdout
-          window.process.stdout = window.process.stdout || {};
-          for (var key in stdoutPolyfill) {
-            if (stdoutPolyfill.hasOwnProperty(key) && window.process.stdout[key] === undefined) {
-              window.process.stdout[key] = stdoutPolyfill[key];
-            }
-          }
-          
-          // Set up stderr
-          window.process.stderr = window.process.stderr || {};
-          for (var key in stderrPolyfill) {
-            if (stderrPolyfill.hasOwnProperty(key) && window.process.stderr[key] === undefined) {
-              window.process.stderr[key] = stderrPolyfill[key];
-            }
-          }
-          
-          // Set up env - CRITICAL: Directly set GOOGLE_SDK_NODE_LOGGING
-          window.process.env = window.process.env || {};
-          window.process.env.GOOGLE_SDK_NODE_LOGGING = false;
-          
-          // Copy other env properties
-          for (var key in envPolyfill) {
-            if (envPolyfill.hasOwnProperty(key) && window.process.env[key] === undefined) {
-              window.process.env[key] = envPolyfill[key];
-            }
-          }
-          
-          // Ensure global is defined
-          window.global = window;
-          
-          // Ensure Buffer is available
-          window.Buffer = window.Buffer || {
-            isBuffer: function() { return false; },
-            from: function(data) { return data; },
-            alloc: function(size) { return new Uint8Array(size); },
-            allocUnsafe: function(size) { return new Uint8Array(size); },
-            allocUnsafeSlow: function(size) { return new Uint8Array(size); }
-          };
-          
-          console.log('Complete process polyfill loaded with GOOGLE_SDK_NODE_LOGGING');
+        // Always define process and process.env as non-configurable, non-writable
+        if (!window.process) {
+          Object.defineProperty(window, 'process', {
+            value: {},
+            writable: false,
+            configurable: false,
+            enumerable: true
+          });
         }
+        if (!window.process.env) {
+          Object.defineProperty(window.process, 'env', {
+            value: {},
+            writable: false,
+            configurable: false,
+            enumerable: true
+          });
+        }
+        // Always define GOOGLE_SDK_NODE_LOGGING as non-configurable, non-writable
+        Object.defineProperty(window.process.env, 'GOOGLE_SDK_NODE_LOGGING', {
+          value: false,
+          writable: false,
+          configurable: false,
+          enumerable: true
+        });
+        // Also define the global variable for extra safety
+        window.__GOOGLE_SDK_NODE_LOGGING = false;
       })();
     </script>
 
